@@ -1,0 +1,6 @@
+.idea/
+.python-version
+__pycache__/
+
+# automatically saved by PyCSP
+/logs
