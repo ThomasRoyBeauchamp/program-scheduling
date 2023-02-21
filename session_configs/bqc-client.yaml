@@ -1,0 +1,65 @@
+session_id: 1
+
+app_deadline: 20 # what form does this have? TODO
+T1: null  # TODO
+T2: null  # TODO
+gate_duration: 1  # TODO
+gate_fidelity: 1.0  # TODO
+cc_duration: 1  # TODO
+
+blocks:
+  - entanglement:
+      comm_q: 1 # TODO
+      storage_q: 10 # TODO
+      instructions: [1, 1, 0, 1]  # TODO
+      CS_id: 1
+  - local_gates:
+      comm_q: 0  # TODO
+      storage_q: 10  # TODO
+      instructions: [0, 1, 0, 0]  # TODO
+      CS_id: 1
+  - send_info:
+      comm_q: 0
+      storage_q: 0  # TODO
+      instructions: [0, 0, 1, 0]  # TODO
+      CS_id: 1
+  - local_calculation:
+      comm_q: 0
+      storage_q: 0
+      instructions: [0, 0, 0, 1]  # TODO
+      CS_id: null
+  - send_info_2:
+      comm_q: 0
+      storage_q: 0
+      instructions: [0, 0, 1, 0]  # TODO
+      CS_id: null
+  - receive_info:
+      comm_q: 0
+      storage_q: 0
+      instructions: [0, 0, 1, 0]  # TODO
+      CS_id: 2
+  - local_calculation_2:
+      comm_q: 0
+      storage_q: 0
+      instructions: [ 0, 0, 0, 1]  # TODO
+      CS_id: 2
+  - send_info_3:
+      comm_q: 0
+      storage_q: 0
+      instructions: [ 0, 0, 1, 0]  # TODO
+      CS_id: 2
+  - receive_info_2:
+      comm_q: 0
+      storage_q: 0
+      instructions: [ 0, 0, 1, 0]  # TODO
+      CS_id: 3
+  - postprocessing:
+      comm_q: 0
+      storage_q: 0
+      instructions: [0, 0, 0, 1]  # TODO
+      CS_id: 3
+  - send_info_4:
+      comm_q: 0
+      storage_q: 0
+      instructions: [ 0, 0, 1, 0]  # TODO
+      CS_id: 3
