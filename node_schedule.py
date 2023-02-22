@@ -1,4 +1,5 @@
 from termcolor import cprint
+import numpy as np
 
 
 class NodeSchedule:
@@ -81,5 +82,6 @@ class NodeSchedule:
         if self.PUF_both is None:
             temp_cpu = [False if i == -1 else True for i in self._CPU_activities]
             temp_qpu = [False if i == -1 else True for i in self._QPU_activities]
-            self.PUF_both = (self.get_makespan() - (temp_cpu or temp_qpu).count(False)) / self.get_makespan()
+            self.PUF_both = (self.get_makespan() - list(np.logical_or(temp_cpu, temp_qpu)).count(False)) \
+                / self.get_makespan()
         return self.PUF_both

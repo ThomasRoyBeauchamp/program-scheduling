@@ -1,0 +1,25 @@
+session_id: 1
+
+app_deadline: 20
+T1: null
+T2: null
+gate_duration: 1
+gate_fidelity: 1.0
+cc_duration: 1
+
+blocks:
+  - get_random_bases:
+      comm_q: 0
+      storage_q: 0
+      instructions: [0, 0, 0, 1]
+      CS_id: null
+  - entanglement:
+      comm_q: 1
+      storage_q: 10
+      instructions: [1, 1, 0, 0]
+      CS_id: 1
+  - measure:
+      comm_q: 0
+      storage_q: 10
+      instructions: [0, 1, 0, 0]
+      CS_id: 1

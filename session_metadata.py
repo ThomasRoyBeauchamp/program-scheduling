@@ -29,10 +29,15 @@ class SessionMetadata:
         with open(yaml_file, 'r') as file_handle:
             config = yaml.load(file_handle, yaml.SafeLoader) or {}
 
+        for key in ["session_id", "app_deadline", "T1", "T2", "gate_duration",
+                    "gate_fidelity", "cc_duration", "blocks"]:
+            if key not in config.keys():
+                raise ValueError(f"Key {key} is not defined in session configuration")
+
+        # TODO: do we want default values of parameters?
+
         if session_id is not None:
             config["session_id"] = session_id
-
-        # TODO: check required params are present and
 
         self.session_id = config.get("session_id")
         self.app_deadline = config.get("app_deadline")
