@@ -29,12 +29,14 @@ class SessionMetadata:
         with open(yaml_file, 'r') as file_handle:
             config = yaml.load(file_handle, yaml.SafeLoader) or {}
 
-        for key in ["session_id", "app_deadline", "T1", "T2", "gate_duration",
-                    "gate_fidelity", "cc_duration", "blocks"]:
+        for key in ["session_id", "app_deadline", "blocks"]:
             if key not in config.keys():
                 raise ValueError(f"Key {key} is not defined in session configuration")
 
-        # TODO: do we want default values of parameters?
+        default_params = {"T1": None, "T2": None, "gate_duration": 1, "gate_fidelity": 1.0, "cc_duration": 1}
+        for key in ["T1", "T2", "gate_duration", "gate_fidelity", "cc_duration"]:
+            if key not in config.keys():
+                print(f"Value for {key} is not defined, it will be set to its default value ({default_params[key]})")
 
         if session_id is not None:
             config["session_id"] = session_id
@@ -42,14 +44,13 @@ class SessionMetadata:
         self.session_id = config.get("session_id")
         self.app_deadline = config.get("app_deadline")
 
-        self.T1 = config.get("T1")
-        self.T2 = config.get("T2")
-        self.gate_duration = config.get("gate_duration")
-        self.gate_fidelity = config.get("gate_fidelity")
-        self.cc_duration = config.get("cc_duration")
+        self.T1 = config.get("T1", default_params["T1"])
+        self.T2 = config.get("T2", default_params["T2"])
+        self.gate_duration = config.get("gate_duration", default_params["gate_duration"])
+        self.gate_fidelity = config.get("gate_fidelity", default_params["gate_fidelity"])
+        self.cc_duration = config.get("cc_duration", default_params["cc_duration"])
 
         # note that each block is a nested dictionary with an arbitrary block name
-        # TODO: try to figure out if there's a better way to do this
         self.blocks = [BlockMetadata(block_config.get(list(block_config.keys())[0]))
                        for block_config in config.get("blocks")]
 

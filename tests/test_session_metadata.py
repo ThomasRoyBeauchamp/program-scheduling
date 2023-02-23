@@ -58,3 +58,12 @@ class TestSessionMetadata(TestCase):
         with pytest.raises(ValueError):
             SessionMetadata("temp.yaml")
         os.remove("temp.yaml")
+
+    def test_session_metadata_default_params(self):
+        self.config.pop("cc_duration")
+        self.config.pop("T1")
+        yaml.dump(self.config, open("temp.yaml", "w"))
+        sm = SessionMetadata("temp.yaml")
+        self.assertEqual(sm.cc_duration, 1)
+        self.assertIsNone(sm.T1)
+        os.remove("temp.yaml")
