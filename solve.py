@@ -3,15 +3,24 @@ import time
 from pycsp3 import *
 from node_schedule import NodeSchedule
 from activity_metadata import ActiveSet
+from network_schedule import NetworkSchedule
 
 if __name__ == '__main__':
-    # TODO: make this input into a command-line argument
-    active = ActiveSet.create_active_set(["../session_configs/qkd.yaml"], [[1, 2, 3, 4, 5]])
+    # TODO: network_schedule and input for create_active_set as command line arguments
+    # network_schedule = NetworkSchedule([1, 10], [3, 3], [1, 2])
+    network_schedule = NetworkSchedule()
+
+    active = ActiveSet.create_active_set(["../session_configs/qkd.yaml"], [[1, 2]], network_schedule)
     # active = ActiveSet.create_active_set(["../session_configs/qkd.yaml", "../session_configs/bqc-client.yaml"],
     #                                      [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]])
 
-    schedule_size = 80  # TODO: how to define schedule size
-    capacities = [1, 1]
+    """
+        TODO: How to define length of node_schedule?
+        If it's too low, there might not be any feasible solution. 
+        If it's too high, we are unnecessarily solving a more complex problem. 
+    """
+    schedule_size = 2 * sum(active.durations)
+    capacities = [1, 1]  # capacity of [CPU, QPU]
 
     # x[i] is the starting time of the ith job
     x = VarArray(size=active.n_blocks, dom=range(schedule_size))
@@ -30,9 +39,12 @@ if __name__ == '__main__':
         # resource constraints
         [cumulative_for(k) <= capacity for k, capacity in enumerate(capacities)],
         # constraints for max time lags
-        [(x[i+1] - (x[i] + active.durations[i])) <= active.d_max[i+1] for i in range(active.n_blocks - 1)]
-        # constraint for min time lags, TODO: this currently doesn't make sense I think, double-check the time lags
-        # [active.d_min[i+1] <= (x[i+1] - (x[i] + active.durations[i])) for i in range(active.n_blocks - 1)]
+        [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)],
+        # constraint for min time lags
+        [active.d_min[i+1] <= (x[i+1] - (x[i] + active.durations[i])) for i in range(active.n_blocks - 1)],
+        # network-schedule constraints (all quantum communication blocks adhere to network schedule if it's defined)
+        [(x[i] == network_schedule.get_session_start_time(active.ids[i]) for i in range(active.n_blocks - 1)
+          if network_schedule.is_defined and active.types[i] == "QC")]
     )
 
     # optional objective function
@@ -44,14 +56,20 @@ if __name__ == '__main__':
     instance = compile()
     ace = solver(ACE)
 
-    # TODO: this is where you define heuristics I think
-    start = time.time()
     # https://github.com/xcsp3team/pycsp3/blob/master/docs/optionsSolvers.pdf
-    result = ace.solve(instance, dict_options={"valh": "max"})
-    # result = ace.solve(instance)
+    # heuristics = {"valh": "max"}
+    heuristics = {}
+
+    print(f"\nTrying to construct a node schedule of length {schedule_size}")
+    start = time.time()
+    result = ace.solve(instance, dict_options=heuristics)
     end = time.time()
 
     if status() is SAT:
         ns = NodeSchedule(active.n_blocks, solution().values, active.durations, active.resource_reqs)
         ns.print()
+        print("\nTime taken to finish: %.4f seconds" % (end - start))
+    else:
+        print("\nNo feasible node schedule was found. "
+              "Consider making the length of node schedule longer or finding a better network schedule.")
         print("\nTime taken to finish: %.4f seconds" % (end - start))
