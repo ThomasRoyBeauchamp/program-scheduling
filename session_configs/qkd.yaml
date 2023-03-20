@@ -1,40 +1,40 @@
 session_id: 1
 
-app_deadline: 20 # what form does this have? TODO
-T1: null  # TODO
-T2: null  # TODO
-gate_duration: 1  # TODO
-gate_fidelity: 1.0  # TODO
-cc_duration: 1  # TODO
+app_deadline: 20
+T1: null
+T2: null
+gate_duration: 1
+gate_fidelity: 1.0
+cc_duration: 1
 
 blocks:
   - get_random_bases:
       comm_q: 0
       storage_q: 0
-      instructions: [0, 0, 0, 1]  # TODO
+      instructions: [0, 0, 0, 1]
       CS_id: null
   - entanglement:
-      comm_q: 1  # TODO
-      storage_q: 10  # TODO
-      instructions: [1, 1, 0, 0]  # TODO
+      comm_q: 1
+      storage_q: 10
+      instructions: [1, 1, 0, 0]
       CS_id: 1
   - measure:
       comm_q: 0
-      storage_q: 10  # TODO
-      instructions: [0, 1, 0, 0]  # TODO
+      storage_q: 10
+      instructions: [0, 1, 0, 0]
       CS_id: 1
   - send_outcomes:
       comm_q: 0
       storage_q: 0
-      instructions: [0, 0, 1, 0]  # TODO
+      instructions: [0, 0, 1, 0]
       CS_id: 1
   - receive_outcomes:
       comm_q: 0
       storage_q: 0
-      instructions: [0, 0, 1, 0]  # TODO
+      instructions: [0, 0, 1, 0]
       CS_id: null
   - postprocessing:
       comm_q: 0
       storage_q: 0
-      instructions: [0, 0, 0, 1]  # TODO
+      instructions: [0, 0, 0, 1]
       CS_id: null

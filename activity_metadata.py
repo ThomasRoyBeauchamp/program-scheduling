@@ -40,7 +40,8 @@ class ActivityMetadata:
     @staticmethod
     def _calculate_duration(block_metadata: BlockMetadata, gate_duration, cc_duration,
                             session_id, network_schedule: NetworkSchedule):
-        cl_duration = 1  # constant for a classical local instruction, TODO: what should it be?
+        # TODO: this needs to be changed if considering real-time units
+        cl_duration = 1  # constant for a classical local instruction
         if network_schedule is None or not network_schedule.is_defined or block_metadata.instructions[0] == 0:
             qc = block_metadata.instructions[0]
         else:
