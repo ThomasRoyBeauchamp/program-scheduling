@@ -3,45 +3,45 @@ app_deadline: 1500000
 blocks:
 - b0:
     type: CL
-    duration: 500.0
+    duration: 500
     CS: null
 - b1:
     type: QL
-    duration: 11000.0
+    duration: 11000
     CS: 1
 - b2:
     type: QC
-    duration: 500000.0
+    duration: 500000
     CS: 1
 - b3:
     type: QL
-    duration: 221000.0
+    duration: 221000
     CS: 1
 - b4:
     type: CL
-    duration: 1000.0
+    duration: 1000
     CS: 1
 - b5:
     type: QC
-    duration: 500000.0
+    duration: 500000
     CS: 1
 - b6:
     type: CC
-    duration: 100000.0
+    duration: 100000
     CS: 1
 - b7:
     type: CC
-    duration: 100000.0
+    duration: 100000
     CS: 1
 - b8:
     type: QL
-    duration: 19000.0
+    duration: 19000
     CS: 1
 - b9:
     type: QL
-    duration: 8000.0
+    duration: 8000
     CS: 1
 - b10:
     type: CL
-    duration: 500.0
+    duration: 500
     CS: null

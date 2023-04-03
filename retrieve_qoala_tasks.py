@@ -92,7 +92,7 @@ def retrieve_tasks(config, num_qubits=3):
     with open(config + '_alice.yml', 'w') as outfile:
         yaml.dump({"session_id": "TODO",
                    "app_deadline": "TODO",
-                   "blocks": [{bt.block_name: {"type": bt.typ.name, "duration": bt.duration, "CS": "TODO"}}
+                   "blocks": [{bt.block_name: {"type": bt.typ.name, "duration": int(bt.duration), "CS": "TODO"}}
                               for bt in alice_tasks]}, outfile, default_flow_style=False, sort_keys=False)
 
     bob_program = load_program(config + "_bob.iqoala")
@@ -107,7 +107,7 @@ def retrieve_tasks(config, num_qubits=3):
     with open(config + '_bob.yml', 'w') as outfile:
         yaml.dump({"session_id": "TODO",
                    "app_deadline": "TODO",
-                   "blocks": [{bt.block_name: {"type": bt.typ.name, "duration": bt.duration, "CS": "TODO"}}
+                   "blocks": [{bt.block_name: {"type": bt.typ.name, "duration": int(bt.duration), "CS": "TODO"}}
                               for bt in bob_tasks]}, outfile, default_flow_style=False, sort_keys=False)
 
 
