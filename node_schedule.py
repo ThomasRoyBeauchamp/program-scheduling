@@ -4,11 +4,13 @@ import numpy as np
 
 class NodeSchedule:
 
-    def __init__(self, n_activities, start_times, durations, resources):
+    def __init__(self, n_activities, start_times, durations, resources, types, names):
         self.n_activities = n_activities
         self.start_times = start_times
         self.durations = durations
         self.resources = resources
+        self.types = types
+        self.block_names = names
 
         self.makespan = None
         self.PUF_both = None
@@ -19,18 +21,34 @@ class NodeSchedule:
         self._QPU_activities = self._calculate_activities(1)
 
     def print(self):
-        CPU_str = self._prep_PU_for_print(self._CPU_activities)
-        QPU_str = self._prep_PU_for_print(self._QPU_activities)
-        timeline = "".join(str(t) + "   " if t < 10 else str(t) + "  " for t in range(self.get_makespan()))
+        if self.get_makespan() < 40:
+            CPU_str = self._prep_PU_for_print(self._CPU_activities)
+            QPU_str = self._prep_PU_for_print(self._QPU_activities)
+            timeline = "".join(str(t) + "   " if t < 10 else str(t) + "  " for t in range(self.get_makespan()))
 
-        cprint("\nNode schedule:", "light_magenta")
-        cprint(f"Success metrics: makespan={self.get_makespan()}, PUF_CPU={round(self.get_PUF_CPU() * 100, 2)}%, "
-               f"PUF_QPU={round(self.get_PUF_QPU() * 100, 2)}%, PUF_both={round(self.get_PUF_both() * 100, 2)}% \n",
-               "magenta")
-        cprint("CPU: " + CPU_str, "light_yellow")
-        cprint("QPU: " + QPU_str, "light_blue")
-        cprint("     " + "|   " * self.get_makespan(), "dark_grey")
-        cprint("     " + timeline, "dark_grey")
+            cprint("\nNode schedule:", "light_magenta")
+            cprint(f"Success metrics: makespan={self.get_makespan()}, PUF_CPU={round(self.get_PUF_CPU() * 100, 2)}%, "
+                   f"PUF_QPU={round(self.get_PUF_QPU() * 100, 2)}%, PUF_both={round(self.get_PUF_both() * 100, 2)}% \n",
+                   "magenta")
+            cprint("CPU: " + CPU_str, "light_yellow")
+            cprint("QPU: " + QPU_str, "light_blue")
+            cprint("     " + "|   " * self.get_makespan(), "dark_grey")
+            cprint("     " + timeline, "dark_grey")
+
+        else:
+            cprint(f"Success metrics: makespan={self.get_makespan()}, PUF_CPU={round(self.get_PUF_CPU() * 100, 2)}%, "
+                   f"PUF_QPU={round(self.get_PUF_QPU() * 100, 2)}%, PUF_both={round(self.get_PUF_both() * 100, 2)}% \n",
+                   "magenta")
+            cprint("CPU schedule:", "light_yellow")
+            c_ops = [b for b in zip(self.start_times, self.block_names, self.types, self.durations) if b[2][0] == "C"]
+            c_ops.sort()
+            for b in c_ops:
+                cprint(f"\tt={b[0]}: {b[1]} ({b[2]}) -- (duration = {b[3]} -> end time = {b[0] + b[3]})", "light_yellow")
+            cprint("QPU schedule:", "light_blue")
+            q_ops = [b for b in zip(self.start_times, self.block_names, self.types, self.durations) if b[2][0] == "Q"]
+            q_ops.sort()
+            for b in q_ops:
+                cprint(f"\tt={b[0]}: {b[1]} ({b[2]}) -- (duration = {b[3]} -> end time = {b[0] + b[3]})", "light_blue")
 
     def _prep_PU_for_print(self, activities):
         temp = ""

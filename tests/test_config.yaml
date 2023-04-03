@@ -8,18 +8,15 @@ gate_fidelity: 1.0
 cc_duration: 1
 
 blocks:
-  - get_random_bases:
-      comm_q: 0
-      storage_q: 0
-      instructions: [0, 0, 0, 1]
-      CS_id: null
-  - entanglement:
-      comm_q: 1
-      storage_q: 10
-      instructions: [1, 1, 0, 0]
-      CS_id: 1
-  - measure:
-      comm_q: 0
-      storage_q: 10
-      instructions: [0, 1, 0, 0]
-      CS_id: 1
+- b0:
+    type: CL
+    duration: 5
+    CS: null
+- b1:
+    type: QL
+    duration: 50
+    CS: 1
+- b2:
+    type: QC
+    duration: 25
+    CS: 1

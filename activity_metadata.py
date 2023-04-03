@@ -1,5 +1,7 @@
 from session_metadata import SessionMetadata, BlockMetadata
 from network_schedule import NetworkSchedule
+from math import gcd
+from functools import reduce
 
 
 class ActivityMetadata:
@@ -7,35 +9,25 @@ class ActivityMetadata:
     def __init__(self, session_metadata: SessionMetadata, network_schedule=None):
         self.session_id = session_metadata.session_id
         self.app_deadline = session_metadata.app_deadline
+        self.block_names = [b.name for b in session_metadata.blocks]
 
         self.n_blocks = len(session_metadata.blocks)
         self.successors = [[i + 1] for i in range(self.n_blocks - 1)]
         self.successors.append([])
         self.resource_reqs = [self._calculate_resource_reqs(b) for b in session_metadata.blocks]
-        self.types = [self._calculate_type(b) for b in session_metadata.blocks]
+        self.types = [b.type for b in session_metadata.blocks]
 
-        self.durations = [self._calculate_duration(b, session_metadata.gate_duration, session_metadata.cc_duration,
-                                                   self.session_id, network_schedule) for b in session_metadata.blocks]
+        self.durations = [b.duration for b in session_metadata.blocks]
         self.d_min, self.d_max = self._calculate_time_lags(session_metadata)
 
     @staticmethod
     def _calculate_resource_reqs(block_metadata: BlockMetadata):
         # resource requirements should be defined as [CPU, QPU]
-        classical = block_metadata.comm_q == 0 and block_metadata.storage_q == 0 and\
-                    (block_metadata.instructions[2] > 0 or block_metadata.instructions[3] > 0)
-        quantum = (block_metadata.comm_q > 0 or block_metadata.storage_q > 0) and\
-                  (block_metadata.instructions[0] > 0 or block_metadata.instructions[1] > 0)
+        classical = block_metadata.type[0] == "C"
+        quantum = block_metadata.type[0] == "Q"
         # sanity check that block is either fully classical or fully quantum
         assert (classical and not quantum) or (not classical and quantum)
         return [int(classical), int(quantum)]
-
-    @staticmethod
-    def _calculate_type(block_metadata: BlockMetadata):
-        resource_reqs = ActivityMetadata._calculate_resource_reqs(block_metadata)
-        if resource_reqs == [0, 1]:
-            return "QC" if block_metadata.instructions[0] > 0 else "QL"
-        else:
-            return "CC" if block_metadata.instructions[2] > 0 else "CL"
 
     @staticmethod
     def _calculate_duration(block_metadata: BlockMetadata, gate_duration, cc_duration,
@@ -71,10 +63,10 @@ class ActivityMetadata:
 
         d_max = []
         for i, block in enumerate(session_metadata.blocks):
-            if block.CS_id is None or i == 0:
+            if block.CS is None or i == 0:
                 d_max.append(remaining_time)
             else:
-                d_max.append(0 if session_metadata.blocks[i-1].CS_id == block.CS_id else remaining_time)
+                d_max.append(0 if session_metadata.blocks[i-1].CS == block.CS else remaining_time)
 
         assert len(d_max) == self.n_blocks  # sanity check
         return [0] * self.n_blocks, d_max
@@ -91,6 +83,8 @@ class ActiveSet:
         self.durations = []
         self.d_min = []
         self.d_max = []
+        self.block_names = []
+        self.smallest_time_unit = None
 
     @staticmethod
     def create_active_set(configs: [ActivityMetadata], session_ids, network_schedule=None):
@@ -119,7 +113,16 @@ class ActiveSet:
         self.ids += [other.session_id] * other.n_blocks
         self.n_blocks += other.n_blocks
         self.resource_reqs += other.resource_reqs
+        self.block_names += other.block_names
         self.types += other.types
         self.durations += other.durations
         self.d_min += other.d_min
         self.d_max += other.d_max
+
+    def update_durations(self):
+        # TODO: this should also update the app_deadline and maybe only after that calculate the d_min/max
+        self.smallest_time_unit = reduce(gcd, self.durations)
+        self.durations = [int(d/self.smallest_time_unit) for d in self.durations]
+        # TODO: these might not actually be integers
+        self.d_min = [int(d/self.smallest_time_unit) for d in self.d_min]
+        self.d_max = [int(d/self.smallest_time_unit) for d in self.d_max]

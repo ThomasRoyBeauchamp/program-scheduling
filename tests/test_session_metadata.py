@@ -9,23 +9,16 @@ from unittest import *
 class TestBlockMetadata(TestCase):
 
     def setUp(self):
-        self.config = {"comm_q": 1, "storage_q": 1, "instructions": [1, 2, 0, 0], "CS_id": None}
+        self.config = {"type": "QC", "duration": 10, "CS": None}
 
     def test_block_metadata_correct(self):
         bm = BlockMetadata(self.config)
-        self.assertEqual(bm.comm_q, self.config["comm_q"])
-        self.assertEqual(bm.storage_q, self.config["storage_q"])
-        self.assertIs(bm.instructions, self.config["instructions"])
-        self.assertIsNone(bm.CS_id)
-        pass
+        self.assertEqual(bm.type, self.config["type"])
+        self.assertEqual(bm.duration, self.config["duration"])
+        self.assertIsNone(bm.CS)
 
     def test_block_metadata_wrong_keys(self):
-        self.config.pop("instructions")
-        with pytest.raises(ValueError):
-            BlockMetadata(self.config)
-
-    def test_block_metadata_wrong_instructions(self):
-        self.config["instructions"] = [1, 1, 0]
+        self.config.pop("duration")
         with pytest.raises(ValueError):
             BlockMetadata(self.config)
 

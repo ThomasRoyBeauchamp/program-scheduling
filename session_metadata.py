@@ -3,24 +3,19 @@ import yaml
 
 class BlockMetadata:
 
-    def __init__(self, config):
-        for key in ["comm_q", "storage_q", "instructions", "CS_id"]:
+    def __init__(self, name, config):
+        for key in ["type", "duration", "CS"]:
             if key not in config.keys():
                 raise ValueError(f"Key {key} is not defined in block configuration")
-        if len(config.get("instructions")) != 4:
-            raise ValueError(f"Four types of instructions should be defined, but there were "
-                             f"{len(config.get('instructions'))}")
 
-        self.comm_q = config.get("comm_q")
-        self.storage_q = config.get("storage_q")
-        self.instructions = config.get("instructions")
-        self.CS_id = config.get("CS_id")
+        self.name = name
+        self.type = config.get("type")
+        self.duration = config.get("duration")
+        self.CS = config.get("CS")
 
     def __str__(self):
-        return f"(#Q_C = {self.comm_q}, #Q_S = {self.storage_q}, " \
-               f"#I_QC = {self.instructions[0]}, #I_QL = {self.instructions[1]}, " \
-               f"#I_CC = {self.instructions[2]}, #I_CL = {self.instructions[3]}, " \
-               f"critical section ID = {self.CS_id})"
+        return f"(type = {self.type}, duration = {self.duration}, " \
+               f"critical section ID = {self.CS})"
 
 
 class SessionMetadata:
@@ -51,7 +46,8 @@ class SessionMetadata:
         self.cc_duration = config.get("cc_duration", default_params["cc_duration"])
 
         # note that each block is a nested dictionary with an arbitrary block name
-        self.blocks = [BlockMetadata(block_config.get(list(block_config.keys())[0]))
+        self.blocks = [BlockMetadata(name=list(block_config.keys())[0],
+                                     config=block_config.get(list(block_config.keys())[0]))
                        for block_config in config.get("blocks")]
 
     def __str__(self):
