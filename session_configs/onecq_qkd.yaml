@@ -15,13 +15,13 @@ blocks:
       CS_id: null
   - entanglement:
       comm_q: 1
-      storage_q: 10
-      instructions: [1, 1, 0, 0]
+      storage_q: 4
+      instructions: [5, 4, 0, 0]
       CS_id: 1
   - measure:
-      comm_q: 0
-      storage_q: 10
-      instructions: [0, 1, 0, 0]
+      comm_q: 1
+      storage_q: 4
+      instructions: [0, 5, 0, 0]
       CS_id: 1
   - send_outcomes:
       comm_q: 0

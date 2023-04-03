@@ -1,0 +1,55 @@
+session_id: 1
+
+app_deadline: 20
+T1: null
+T2: null
+gate_duration: 1
+gate_fidelity: 1.0
+cc_duration: 1
+
+blocks:
+  - entanglement:
+      comm_q: 1
+      storage_q: 0
+      instructions: [1, 0, 0, 0]
+      CS_id: 1
+  - Bell-state_measurement_A:
+      comm_q: 1
+      storage_q: 1
+      instructions: [0, 1, 0, 0]
+      CS_id: 1
+  - send_outcome_to_B:
+      comm_q: 0
+      storage_q: 0
+      instructions: [0, 0, 1, 0]
+      CS_id: 1
+  - entanglement_2:
+      comm_q: 1
+      storage_q: 0
+      instructions: [1, 0, 0, 0]
+      CS_id: 1
+  - receive_outcome_from_B:
+      comm_q: 0
+      storage_q: 0
+      instructions: [0, 0, 1, 0]
+      CS_id: 1
+  - move_state_to_storage_q:
+      comm_q: 1
+      storage_q: 1
+      instructions: [0, 1, 0, 0]
+      CS_id: 1
+  - entanglement3:
+      comm_q: 1
+      storage_q: 0
+      instructions: [1, 0, 0, 0]
+      CS_id: 1
+  - Bell-state_measurement_A2:
+      comm_q: 0
+      storage_q: 1
+      instructions: [0, 1, 0, 0]
+      CS_id: 1
+  - send_outcome_to_B2:
+      comm_q: 0
+      storage_q: 0
+      instructions: [0, 0, 1, 0]
+      CS_id: 1
