@@ -1,0 +1,1 @@
+- `setup_configs.py` takes as argument iqoala programs (for both Alice and Bob) and create YAML config templates with information about blocks. It is then necessary to manually edit the application deadline and IDs of critical sections. 

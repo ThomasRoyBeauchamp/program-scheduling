@@ -1,6 +1,7 @@
 import os
 import yaml
 from typing import List
+from argparse import ArgumentParser
 
 from qoala.lang.ehi import UnitModule
 from qoala.lang.parse import QoalaParser
@@ -62,8 +63,10 @@ def create_batch(
     )
 
 
-def retrieve_tasks(config, num_qubits=3):
-    # TODO: maybe this could be done with program instances instead idk
+def retrieve_tasks(config, save_filename=None, num_qubits=3):
+    if save_filename is None:
+        save_filename = config
+
     network_info = create_network_info(names=["bob", "alice"])
     alice_id = network_info.get_node_id("alice")
     bob_id = network_info.get_node_id("bob")
@@ -78,7 +81,8 @@ def retrieve_tasks(config, num_qubits=3):
     alice_procnode = network.nodes["alice"]
     bob_procnode = network.nodes["bob"]
 
-    alice_program = load_program(config + "_alice.iqoala")
+    alice_program = load_program("configs/" + config + "_alice.iqoala")
+    # this is not necessarily correct but should not matter for retrieving the blocks information
     alice_inputs = [ProgramInput({"bob_id": bob_id})]
 
     alice_unit_module = UnitModule.from_full_ehi(alice_procnode.memmgr.get_ehi())
@@ -89,13 +93,13 @@ def retrieve_tasks(config, num_qubits=3):
     alice_procnode.initialize_processes()
     alice_tasks = alice_procnode.scheduler.get_tasks_to_schedule()
 
-    with open(config + '_alice.yml', 'w') as outfile:
+    with open('configs/' + save_filename + '_alice.yml', 'w') as outfile:
         yaml.dump({"session_id": "TODO",
                    "app_deadline": "TODO",
                    "blocks": [{bt.block_name: {"type": bt.typ.name, "duration": int(bt.duration), "CS": "TODO"}}
                               for bt in alice_tasks]}, outfile, default_flow_style=False, sort_keys=False)
 
-    bob_program = load_program(config + "_bob.iqoala")
+    bob_program = load_program("configs/" + config + "_bob.iqoala")
     bob_inputs = [ProgramInput({"alice_id": alice_id})]
 
     bob_unit_module = UnitModule.from_full_ehi(bob_procnode.memmgr.get_ehi())
@@ -104,7 +108,7 @@ def retrieve_tasks(config, num_qubits=3):
     bob_procnode.initialize_processes()
     bob_tasks = bob_procnode.scheduler.get_tasks_to_schedule()
 
-    with open(config + '_bob.yml', 'w') as outfile:
+    with open('configs/' + save_filename + '_bob.yml', 'w') as outfile:
         yaml.dump({"session_id": "TODO",
                    "app_deadline": "TODO",
                    "blocks": [{bt.block_name: {"type": bt.typ.name, "duration": int(bt.duration), "CS": "TODO"}}
@@ -112,4 +116,10 @@ def retrieve_tasks(config, num_qubits=3):
 
 
 if __name__ == '__main__':
-    retrieve_tasks("configs/pingpong")
+    parser = ArgumentParser()
+    parser.add_argument('config', type=str, help="Name of the iqoala program (without the `_alice` or `_bob` suffix).")
+    parser.add_argument('-s', '--save_filename', required=False, type=str, default=None,
+                        help="Name of the file to save results in.")
+
+    args, unknown = parser.parse_known_args()
+    retrieve_tasks(args.config, args.save_filename)
