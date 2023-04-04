@@ -1,0 +1,101 @@
+META_START
+    name: alice
+    parameters: bob_id, theta0, theta1, theta2, theta3, theta4
+    csockets: 0 -> bob
+    epr_sockets: 0 -> bob
+META_END
+
+^b0 {type = CL}:
+    csocket = assign_cval() : 0
+
+^b1 {type = QC}:
+    run_request(vec<>) : req
+
+^b2 {type = QL}:
+    vec<m0> = run_subroutine(vec<theta0>) : meas_qubit_0
+
+^b3 {type = QC}:
+    run_request(vec<>) : req
+
+^b4 {type = QL}:
+    vec<m1> = run_subroutine(vec<theta1>) : meas_qubit_0
+
+^b5 {type = QC}:
+    run_request(vec<>) : req
+
+^b6 {type = QL}:
+    vec<m2> = run_subroutine(vec<theta2>) : meas_qubit_0
+
+^b7 {type = QC}:
+    run_request(vec<>) : req
+
+^b8 {type = QL}:
+    vec<m3> = run_subroutine(vec<theta3>) : meas_qubit_0
+
+^b9 {type = QC}:
+    run_request(vec<>) : req
+
+^b10 {type = QL}:
+    vec<m4> = run_subroutine(vec<theta4>) : meas_qubit_0
+
+^b11 {type = CL}:
+    send_cmsg(csocket, theta0)
+    send_cmsg(csocket, theta1)
+    send_cmsg(csocket, theta2)
+    send_cmsg(csocket, theta3)
+    send_cmsg(csocket, theta4)
+
+^b12 {type = CC}:
+    bob_theta0 = recv_cmsg(csocket)
+
+^b13 {type = CC}:
+    bob_theta1 = recv_cmsg(csocket)
+
+^b14 {type = CC}:
+    bob_theta2 = recv_cmsg(csocket)
+
+^b15 {type = CC}:
+    bob_theta3 = recv_cmsg(csocket)
+
+^b16 {type = CC}:
+    bob_theta4 = recv_cmsg(csocket)
+
+^b17 {type = CL}:
+    return_result(bob_theta0)
+    return_result(bob_theta1)
+    return_result(bob_theta2)
+    return_result(bob_theta3)
+    return_result(bob_theta4)
+    return_result(m0)
+    return_result(m1)
+    return_result(m2)
+    return_result(m3)
+    return_result(m4)
+
+SUBROUTINE meas_qubit_0
+    params: basis0
+    returns: m0
+    uses: 0, 1
+    keeps:
+    request:
+  NETQASM_START
+    load C0 @input[0]
+    set Q0 0
+    rot_z Q0 C0 4
+    h Q0
+    meas Q0 M0
+    store M0 @output[0]
+  NETQASM_END
+
+REQUEST req
+  callback_type: wait_all
+  callback: 
+  return_vars:
+  remote_id: {bob_id}
+  epr_socket_id: 0
+  num_pairs: 1
+  virt_ids: all 0
+  timeout: 1000
+  fidelity: 1.0
+  typ: create_keep
+  role: create
