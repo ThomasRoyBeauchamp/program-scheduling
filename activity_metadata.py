@@ -1,6 +1,6 @@
 from session_metadata import SessionMetadata, BlockMetadata
 from network_schedule import NetworkSchedule
-from math import gcd
+from math import gcd, floor, ceil
 from functools import reduce
 
 
@@ -9,15 +9,18 @@ class ActivityMetadata:
     def __init__(self, session_metadata: SessionMetadata, network_schedule=None):
         self.session_id = session_metadata.session_id
         self.app_deadline = session_metadata.app_deadline
-        self.block_names = [b.name for b in session_metadata.blocks]
 
         self.n_blocks = len(session_metadata.blocks)
-        self.successors = [[i + 1] for i in range(self.n_blocks - 1)]
-        self.successors.append([])
-        self.resource_reqs = [self._calculate_resource_reqs(b) for b in session_metadata.blocks]
+        self.block_names = [b.name for b in session_metadata.blocks]
         self.types = [b.type for b in session_metadata.blocks]
 
+        self.successors = [[i + 1] for i in range(self.n_blocks - 1)]
+        self.successors.append([])
+
+        self.resource_reqs = [self._calculate_resource_reqs(b) for b in session_metadata.blocks]
+
         self.durations = [b.duration for b in session_metadata.blocks]
+        self._update_qc_blocks_based_on_network_schedule(network_schedule)
         self.d_min, self.d_max = self._calculate_time_lags(session_metadata)
 
     @staticmethod
@@ -29,21 +32,13 @@ class ActivityMetadata:
         assert (classical and not quantum) or (not classical and quantum)
         return [int(classical), int(quantum)]
 
-    @staticmethod
-    def _calculate_duration(block_metadata: BlockMetadata, gate_duration, cc_duration,
-                            session_id, network_schedule: NetworkSchedule):
-        # TODO: this needs to be changed if considering real-time units
-        cl_duration = 1  # constant for a classical local instruction
-        if network_schedule is None or not network_schedule.is_defined or block_metadata.instructions[0] == 0:
-            qc = block_metadata.instructions[0]
-        else:
-            # Currently any block involving quantum communication operations is as long as its time slot in the
-            # network schedule.
-            return network_schedule.get_session_duration(session_id)
-        ql = block_metadata.instructions[1] * gate_duration
-        cc = block_metadata.instructions[2] * cc_duration
-        cl = block_metadata.instructions[3] * cl_duration
-        return qc + ql + cc + cl
+    def _update_qc_blocks_based_on_network_schedule(self, network_schedule):
+        if network_schedule is None or not network_schedule.is_defined:
+            return
+        durations = network_schedule.get_session_durations(self.session_id)
+        for i in range(self.n_blocks):
+            if self.types[i] == "QC":
+                self.durations[i] = durations.pop(0)
 
     def _calculate_time_lags(self, session_metadata: SessionMetadata):
         """
@@ -84,7 +79,7 @@ class ActiveSet:
         self.d_min = []
         self.d_max = []
         self.block_names = []
-        self.smallest_time_unit = None
+        self.gcd = None
 
     @staticmethod
     def create_active_set(configs: [ActivityMetadata], session_ids, network_schedule=None):
@@ -119,10 +114,13 @@ class ActiveSet:
         self.d_min += other.d_min
         self.d_max += other.d_max
 
-    def update_durations(self):
-        # TODO: this should also update the app_deadline and maybe only after that calculate the d_min/max
-        self.smallest_time_unit = reduce(gcd, self.durations)
-        self.durations = [int(d/self.smallest_time_unit) for d in self.durations]
-        # TODO: these might not actually be integers
-        self.d_min = [int(d/self.smallest_time_unit) for d in self.d_min]
-        self.d_max = [int(d/self.smallest_time_unit) for d in self.d_max]
+    def scale_down(self):
+        self.gcd = reduce(gcd, self.durations)
+        self.durations = [int(d / self.gcd) for d in self.durations]
+        # these might not be integers but as long as d_min is rounded down and d_max is rounded up, it should be fine
+        self.d_min = [ceil(d / self.gcd) for d in self.d_min]
+        self.d_max = [floor(d / self.gcd) for d in self.d_max]
+
+    def scale_up(self):
+        self.durations = [d * self.gcd for d in self.durations]
+        print("Note that the minimum and maximum time lags are not scaled back up.")

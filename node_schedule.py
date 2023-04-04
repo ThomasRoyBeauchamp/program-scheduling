@@ -1,16 +1,19 @@
 from termcolor import cprint
 import numpy as np
+import pandas as pd
+import yaml
+import os
 
 
 class NodeSchedule:
 
-    def __init__(self, n_activities, start_times, durations, resources, types, names):
-        self.n_activities = n_activities
+    def __init__(self, active_set, start_times):
+        self.n_activities = active_set.n_blocks
         self.start_times = start_times
-        self.durations = durations
-        self.resources = resources
-        self.types = types
-        self.block_names = names
+        self.durations = active_set.durations
+        self.resources = active_set.resource_reqs
+        self.types = active_set.types
+        self.block_names = active_set.block_names
 
         self.makespan = None
         self.PUF_both = None
@@ -19,6 +22,34 @@ class NodeSchedule:
 
         self._CPU_activities = self._calculate_activities(0)
         self._QPU_activities = self._calculate_activities(1)
+
+    @staticmethod
+    def how_many_sessions(dataset, protocol):
+        f = list(filter(lambda x: protocol in x[0], list(dataset.items())))
+        return sum([n for (_, n) in f])
+
+    @staticmethod
+    def get_role(dataset):
+        f = list(filter(lambda x: x[1] > 0, list(dataset.items())))
+        return "Alice" if "alice" in f[0][0] else "Bob"
+
+    def save_success_metrics(self, name, filename, network_schedule, dataset):
+        # create a pandas dataframe
+        ns = False if network_schedule is None or not network_schedule.is_defined else True
+        qkd = self.how_many_sessions(dataset, "qkd")
+        bqc = self.how_many_sessions(dataset, "bqc")
+        pp = self.how_many_sessions(dataset, "pingpong")
+        df = pd.DataFrame([[name, self.get_role(dataset), ns, qkd, bqc, pp, self.get_makespan(),
+                            self.get_PUF_both(), self.get_PUF_CPU(), self.get_PUF_QPU()]],
+                          columns=["name", "node", "network_schedule", "# QKD", "# BQC", "# PP", "makespan",
+                                   "PUF_both", "PUF_CPU", "PUF_QPU"])
+
+        if os.path.isfile(filename):  # if the file exists, append
+            old_df = pd.read_csv(filename)
+            new_df = pd.concat([old_df, df], ignore_index=True)
+            new_df.to_csv(filename, index=False)
+        else:  # otherwise make new file
+            df.to_csv(filename, index=False)
 
     def print(self):
         if self.get_makespan() < 40:
@@ -49,6 +80,18 @@ class NodeSchedule:
             q_ops.sort()
             for b in q_ops:
                 cprint(f"\tt={b[0]}: {b[1]} ({b[2]}) -- (duration = {b[3]} -> end time = {b[0] + b[3]})", "light_blue")
+
+    def save_starting_times(self, filename):
+        # TODO: check that node_schedules folder exists and if not, create it
+        with open('../node_schedules/' + filename + '.yml', 'w+') as outfile:
+            yaml.dump([t * self.stu for t in self.start_times], outfile, default_flow_style=False, sort_keys=False)
+
+    def save_sorted_indices(self, filename):
+        # TODO: check that node_schedules folder exists and if not, create it
+        pairs = [(t * self.stu, i) for i, t in enumerate(self.start_times)]
+        pairs.sort()
+        with open('../node_schedules/' + filename + '.yml', 'w+') as outfile:
+            yaml.dump([i for (_, i) in pairs], outfile, default_flow_style=False, sort_keys=False)
 
     def _prep_PU_for_print(self, activities):
         temp = ""
