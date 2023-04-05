@@ -14,10 +14,9 @@ if __name__ == '__main__':
     # active = ActiveSet.create_active_set(["../session_configs/qkd.yaml", "../session_configs/bqc-client.yaml"],
     #                                      [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]])
     dataset = {  # TODO: use this for argument to create_active_set
-        # "../configs/pingpong_alice.yml": 12,
-        "../configs/qkd_ck_bob.yml": 12
+        "../configs/pingpong_alice.yml": 30
     }
-    active = ActiveSet.create_active_set(["../configs/qkd_ck_bob.yml"], [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]],
+    active = ActiveSet.create_active_set(["../configs/pingpong_alice.yml"], [list(range(30))],
                                          network_schedule)
     active.scale_down()
     """
@@ -26,7 +25,7 @@ if __name__ == '__main__':
         If it's too high, we are unnecessarily solving a more complex problem. 
     """
     print(sum(active.durations))
-    schedule_size = 3 * int(sum(active.durations))
+    schedule_size = 2 * int(sum(active.durations))
     capacities = [1, 1]  # capacity of [CPU, QPU]
 
     # x[i] is the starting time of the ith job
@@ -82,14 +81,18 @@ if __name__ == '__main__':
 
         ns.print()
         # TODO: make into a CL argument
-        save_node_schedule = True
+        save_node_schedule = False
         if save_node_schedule:
             # TODO: make into a CL argument
             name = "temp_results"
             # TODO: make filename into a CL argument
             ns.save_success_metrics(name, filename="../node_schedule_results.csv", network_schedule=network_schedule,
                                     dataset=dataset, solve_time=end-start)
-            # ns.save_sorted_indices(filename="temp")
+
+        # TODO: make into a CL argument
+        save_node_schedule = False
+        if save_node_schedule:
+            ns.save_node_schedule("../node_schedules/temp_pingpong_bob_12.csv")
 
         print("\nTime taken to finish: %.4f seconds" % (end - start))
     else:
