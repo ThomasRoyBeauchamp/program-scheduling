@@ -1,7 +1,5 @@
 from termcolor import cprint
-import numpy as np
 import pandas as pd
-import yaml
 import os
 
 
@@ -20,8 +18,8 @@ class NodeSchedule:
         self.PUF_CPU = None
         self.PUF_QPU = None
 
-        self._CPU_activities = self._calculate_activities(0)
-        self._QPU_activities = self._calculate_activities(1)
+        self._CPU_activities = None
+        self._QPU_activities = None
 
     @staticmethod
     def how_many_sessions(dataset, protocol):
@@ -53,6 +51,9 @@ class NodeSchedule:
 
     def print(self):
         if self.get_makespan() < 40:
+            self._CPU_activities = self._calculate_activities(0)
+            self._QPU_activities = self._calculate_activities(1)
+
             CPU_str = self._prep_PU_for_print(self._CPU_activities)
             QPU_str = self._prep_PU_for_print(self._QPU_activities)
             timeline = "".join(str(t) + "   " if t < 10 else str(t) + "  " for t in range(self.get_makespan()))
@@ -81,17 +82,13 @@ class NodeSchedule:
             for b in q_ops:
                 cprint(f"\tt={b[0]}: {b[1]} ({b[2]}) -- (duration = {b[3]} -> end time = {b[0] + b[3]})", "light_blue")
 
-    def save_starting_times(self, filename):
+    def save_node_schedule(self, filename):
         # TODO: check that node_schedules folder exists and if not, create it
-        with open('../node_schedules/' + filename + '.yml', 'w+') as outfile:
-            yaml.dump([t * self.stu for t in self.start_times], outfile, default_flow_style=False, sort_keys=False)
-
-    def save_sorted_indices(self, filename):
-        # TODO: check that node_schedules folder exists and if not, create it
-        pairs = [(t * self.stu, i) for i, t in enumerate(self.start_times)]
-        pairs.sort()
-        with open('../node_schedules/' + filename + '.yml', 'w+') as outfile:
-            yaml.dump([i for (_, i) in pairs], outfile, default_flow_style=False, sort_keys=False)
+        df = pd.DataFrame(data={"index": list(range(self.n_activities)),
+                                "type": self.types,
+                                "start_time": self.start_times,
+                                "duration": self.durations})
+        df.to_csv(filename, index=False)
 
     def _prep_PU_for_print(self, activities):
         temp = ""
@@ -131,18 +128,30 @@ class NodeSchedule:
 
     def get_PUF_CPU(self):
         if self.PUF_CPU is None:
-            self.PUF_CPU = (self.get_makespan() - self._CPU_activities.count(-1)) / self.get_makespan()
+            CPU_duration = sum([self.durations[i] for i in range(self.n_activities) if self.types[i][0] == "C"])
+            self.PUF_CPU = CPU_duration / self.get_makespan()
         return self.PUF_CPU
 
     def get_PUF_QPU(self):
         if self.PUF_QPU is None:
-            self.PUF_QPU = (self.get_makespan() - self._QPU_activities.count(-1)) / self.get_makespan()
+            QPU_duration = sum([self.durations[i] for i in range(self.n_activities) if self.types[i][0] == "Q"])
+            self.PUF_QPU = QPU_duration / self.get_makespan()
         return self.PUF_QPU
 
     def get_PUF_both(self):
         if self.PUF_both is None:
-            temp_cpu = [False if i == -1 else True for i in self._CPU_activities]
-            temp_qpu = [False if i == -1 else True for i in self._QPU_activities]
-            self.PUF_both = (self.get_makespan() - list(np.logical_or(temp_cpu, temp_qpu)).count(False)) \
-                / self.get_makespan()
+            total_duration = 0
+            pairs = list(zip(self.start_times, self.durations))
+            pairs.sort()
+            c = 0
+            for (start, duration) in pairs:
+                if c <= start:
+                    c += duration
+                    total_duration += duration
+                else:
+                    end_time = start + duration
+                    if end_time > c:
+                        total_duration = total_duration + end_time - c
+                        c = end_time
+            self.PUF_both = total_duration / self.get_makespan()
         return self.PUF_both
