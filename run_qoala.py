@@ -4,6 +4,7 @@ import os
 import yaml
 from dataclasses import dataclass
 from typing import Dict, List
+import pandas as pd
 
 import netsquid as ns
 
@@ -69,6 +70,41 @@ class PingPongResult:
     bob_results: Dict[int, BatchResult]
 
 
+def create_task_schedule(tasks, node_schedule_config):
+    """
+    To fix the length of QC blocks, this method can in the future also take in network schedule (or have the relevant
+    information in the node schedule) and return the changed tasks as well.
+    """
+    node_schedule = pd.read_csv(node_schedule_config)
+
+    end_times = [node_schedule["start_time"][i] + node_schedule["duration"][i] for i in range(len(node_schedule["index"]))]
+    temp = []
+    for i in range(len(node_schedule["index"])):
+        if end_times.count(node_schedule["start_time"][i]) == 1:
+            prev_index = end_times.index(node_schedule["start_time"][i])
+            if node_schedule["type"][i][0] != node_schedule["type"][prev_index][0]:
+                temp.append((node_schedule["start_time"][i], node_schedule["index"][i], prev_index))
+            else:
+                # there is only one task which finishes before this one but it's the same type
+                temp.append((node_schedule["start_time"][i], node_schedule["index"][i], None))
+        else:
+            # there is no prev task
+            temp.append((node_schedule["start_time"][i], node_schedule["index"][i], None))
+    # sort tuples according to start time
+    temp.sort()
+
+    # indices of tasks in the order they start in the node schedule
+    indices = [i for (_, i, _) in temp]
+    # prev[i] is an index of tasks that needs to be defined as previous to task i
+    prev = [p for (_, _, p) in temp]
+
+    schedule = TaskSchedule([
+        TaskScheduleEntry(tasks[indices[i]], prev=tasks[prev[i]] if prev[i] is not None else None)
+        for i in range(len(tasks))])
+
+    return schedule
+
+
 def run_pingpong(num_iterations: int) -> PingPongResult:
     ns.sim_reset()
 
@@ -97,9 +133,10 @@ def run_pingpong(num_iterations: int) -> PingPongResult:
     alice_tasks = alice_procnode.scheduler.get_tasks_to_schedule()
     print("Alice tasks:")
     print([str(t) for t in alice_tasks])
-    with open("node_schedules/temp_pingpong_alice_indices.yml", 'r') as file_handle:
-        indices = yaml.load(file_handle, yaml.SafeLoader) or {}
-    alice_schedule = TaskSchedule([TaskScheduleEntry(alice_tasks[indices[i]]) for i in range(len(indices))])
+    # TODO: make into a CL argument
+    node_schedule_config = "node_schedules/temp_pingpong_alice_12.csv"
+    alice_schedule = create_task_schedule(alice_tasks, node_schedule_config)
+    # alice_schedule = TaskSchedule.consecutive(alice_tasks)
     print("\nAlice schedule:")
     print(alice_schedule)
     alice_procnode.scheduler.upload_schedule(alice_schedule)
@@ -114,9 +151,9 @@ def run_pingpong(num_iterations: int) -> PingPongResult:
     bob_tasks = bob_procnode.scheduler.get_tasks_to_schedule()
     print("\n\nBob tasks:")
     print([str(t) for t in bob_tasks])
-    with open("node_schedules/temp_pingpong_bob_indices.yml", 'r') as file_handle:
-        indices = yaml.load(file_handle, yaml.SafeLoader) or {}
-    bob_schedule = TaskSchedule([TaskScheduleEntry(bob_tasks[indices[i]]) for i in range(len(indices))])
+    node_schedule_config = "node_schedules/temp_pingpong_bob_12.csv"
+    bob_schedule = create_task_schedule(bob_tasks, node_schedule_config)
+    # bob_schedule = TaskSchedule.consecutive(bob_tasks)
     print("\nBob schedule:")
     print(bob_schedule)
     bob_procnode.scheduler.upload_schedule(bob_schedule)
@@ -126,6 +163,7 @@ def run_pingpong(num_iterations: int) -> PingPongResult:
 
     alice_results = alice_procnode.scheduler.get_batch_results()
     bob_results = bob_procnode.scheduler.get_batch_results()
+    print("End of execution: " + str(ns.sim_time()))
 
     return PingPongResult(alice_results, bob_results)
 
@@ -155,6 +193,7 @@ def run_qkd(num_iterations: int, alice_file: str, bob_file: str):
     bob_procnode = network.nodes["bob"]
 
     alice_program = load_program(alice_file)
+    # theta should be either 0 (Z basis meas) or 24 (X basis measurement) for rot Y rotation
     alice_inputs = [ProgramInput({"bob_id": bob_id, "theta0": 0, "theta1": 0, "theta2": 0, "theta3": 0,
                                   "theta4": 0}) for _ in range(num_iterations)]
 
@@ -178,6 +217,7 @@ def run_qkd(num_iterations: int, alice_file: str, bob_file: str):
     alice_procnode.scheduler.upload_schedule(alice_schedule)
 
     bob_program = load_program(bob_file)
+    # theta should be either 0 (Z basis meas) or 24 (X basis measurement) for rot Y rotation
     bob_inputs = [ProgramInput({"alice_id": alice_id, "theta0": 0, "theta1": 0, "theta2": 0, "theta3": 0,
                                 "theta4": 0}) for _ in range(num_iterations)]
 
@@ -208,12 +248,13 @@ def run_qkd(num_iterations: int, alice_file: str, bob_file: str):
     return QkdResult(alice_results, bob_results)
 
 
-def test_pingpong():
-    LogManager.set_log_level("DEBUG")
+def pingpong():
+    # LogManager.set_log_level("DEBUG")
 
     def check(num_iterations):
         ns.sim_reset()
         result = run_pingpong(num_iterations)
+        print("finished running!!")
         assert len(result.alice_results) > 0
         assert len(result.bob_results) > 0
 
@@ -223,10 +264,10 @@ def test_pingpong():
             outcomes = [result.values["outcome"] for result in program_results]
             assert all(outcome == 1 for outcome in outcomes)
 
-    check(2)
+    check(12)
 
 
-def test_qkd_ck():
+def qkd_ck():
     # LogManager.set_log_level("DEBUG")
     ns.sim_reset()
 
@@ -252,5 +293,5 @@ def test_qkd_ck():
 
 
 if __name__ == "__main__":
-    test_pingpong()
-    # test_qkd_ck()
+    pingpong()
+    # qkd_ck()

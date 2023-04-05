@@ -81,8 +81,7 @@ SUBROUTINE meas_qubit_0
   NETQASM_START
     load C0 @input[0]
     set Q0 0
-    rot_z Q0 C0 4
-    h Q0
+    rot_y Q0 C0 4
     meas Q0 M0
     store M0 @output[0]
   NETQASM_END
