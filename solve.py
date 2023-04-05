@@ -14,9 +14,11 @@ if __name__ == '__main__':
     # active = ActiveSet.create_active_set(["../session_configs/qkd.yaml", "../session_configs/bqc-client.yaml"],
     #                                      [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]])
     dataset = {  # TODO: use this for argument to create_active_set
-        "../configs/pingpong_alice.yaml": 2
+        # "../configs/pingpong_alice.yml": 12,
+        "../configs/qkd_ck_bob.yml": 12
     }
-    active = ActiveSet.create_active_set(["../configs/pingpong_alice.yml"], [[1, 2]], network_schedule)
+    active = ActiveSet.create_active_set(["../configs/qkd_ck_bob.yml"], [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]],
+                                         network_schedule)
     active.scale_down()
     """
         TODO: How to define length of node_schedule?
@@ -45,7 +47,7 @@ if __name__ == '__main__':
         # resource constraints
         [cumulative_for(k) <= capacity for k, capacity in enumerate(capacities)],
         # constraints for max time lags
-        [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)],
+        [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)]
         # constraint for min time lags
         # TODO: this does not allow for concurrent executions of sessions of teleportation, why
         # [active.d_min[i+1] <= (x[i+1] - (x[i] + active.durations[i])) for i in range(active.n_blocks - 1)],
@@ -83,10 +85,10 @@ if __name__ == '__main__':
         save_node_schedule = True
         if save_node_schedule:
             # TODO: make into a CL argument
-            name = "append"
+            name = "temp_results"
             # TODO: make filename into a CL argument
-            ns.save_success_metrics(name, filename="../results.csv", network_schedule=network_schedule,
-                                    dataset=dataset)
+            ns.save_success_metrics(name, filename="../node_schedule_results.csv", network_schedule=network_schedule,
+                                    dataset=dataset, solve_time=end-start)
             # ns.save_sorted_indices(filename="temp")
 
         print("\nTime taken to finish: %.4f seconds" % (end - start))
