@@ -81,6 +81,19 @@ class ActiveSet:
         self.block_names = []
         self.gcd = None
 
+    # TODO: something like this is needed for the test but do it in a pythonic way (kwargs)
+    # def __init__(self, n_blocks, ids, succ, reqs, types, durations, d_min, d_max, block_names, gcd):
+    #     self.n_blocks = n_blocks
+    #     self.ids = ids
+    #     self.successors = succ
+    #     self.resource_reqs = reqs
+    #     self.types = types
+    #     self.durations = durations
+    #     self.d_min = d_min
+    #     self.d_max = d_max
+    #     self.block_names = block_names
+    #     self.gcd = gcd
+
     @staticmethod
     def create_active_set(configs: [ActivityMetadata], session_ids, network_schedule=None):
         if len(configs) != len(session_ids):

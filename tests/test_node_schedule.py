@@ -1,3 +1,4 @@
+from activity_metadata import ActiveSet
 from node_schedule import NodeSchedule
 from unittest import *
 
@@ -13,12 +14,13 @@ class TestNodeSchedule(TestCase):
              |   |   |   |   |   |   |   |   |   |
              0   1   2   3   4   5   6   7   8   9
         """
-        self.n_activities = 12
+        resources = [[1, 0], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0],
+                     [1, 0], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0]]
+        types = ["CL", "QC", "QL", "CC", "CC", "CC"] * 2
+        durations = [1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1]
+        self.active = ActiveSet(12, [], [], resources, types, durations, [], [], [], 0)
         self.start_times = [0, 1, 3, 4, 5, 6, 1, 4, 6, 7, 8, 9]
-        self.durations = [1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1]
-        self.resources = [[1, 0], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0],
-                          [1, 0], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0]]
-        self.ns = NodeSchedule(self.n_activities, self.start_times, self.durations, self.resources)
+        self.ns = NodeSchedule(self.active, self.start_times)
 
     def test_node_schedule_correct(self):
         self.assertEqual(self.ns._CPU_activities, [0, 6, -1, -1, 3, 4, 5, 9, 10, 11])
