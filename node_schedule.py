@@ -26,20 +26,15 @@ class NodeSchedule:
         f = list(filter(lambda x: protocol in x[0], list(dataset.items())))
         return sum([n for (_, n) in f])
 
-    @staticmethod
-    def get_role(dataset):
-        f = list(filter(lambda x: x[1] > 0, list(dataset.items())))
-        return "Alice" if "alice" in f[0][0] else "Bob"
-
-    def save_success_metrics(self, name, filename, network_schedule, dataset, solve_time):
+    def save_success_metrics(self, name, filename, role, type, network_schedule, dataset, solve_time):
         # create a pandas dataframe
         ns = False if network_schedule is None or not network_schedule.is_defined else True
         qkd = self.how_many_sessions(dataset, "qkd")
         bqc = self.how_many_sessions(dataset, "bqc")
         pp = self.how_many_sessions(dataset, "pingpong")
-        df = pd.DataFrame([[name, self.get_role(dataset), ns, qkd, bqc, pp, solve_time, self.get_makespan(),
+        df = pd.DataFrame([[name, role, type, ns, bqc, qkd, pp, solve_time, self.get_makespan(),
                             self.get_PUF_both(), self.get_PUF_CPU(), self.get_PUF_QPU()]],
-                          columns=["name", "node", "network_schedule", "# QKD", "# BQC", "# PP", "solve_time",
+                          columns=["name", "node", "schedule_type", "network_schedule", "#BQC", "#QKD", "#PP", "solve_time",
                                    "makespan", "PUF_both", "PUF_CPU", "PUF_QPU"])
 
         if os.path.isfile(filename):  # if the file exists, append

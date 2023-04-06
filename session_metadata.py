@@ -29,9 +29,9 @@ class SessionMetadata:
                 raise ValueError(f"Key {key} is not defined in session configuration")
 
         default_params = {"T1": None, "T2": None, "gate_duration": 1, "gate_fidelity": 1.0, "cc_duration": 1}
-        for key in ["T1", "T2", "gate_duration", "gate_fidelity", "cc_duration"]:
-            if key not in config.keys():
-                print(f"Value for {key} is not defined, it will be set to its default value ({default_params[key]})")
+        # for key in ["T1", "T2", "gate_duration", "gate_fidelity", "cc_duration"]:
+        #     if key not in config.keys():
+        #         print(f"Value for {key} is not defined, it will be set to its default value ({default_params[key]})")
 
         if session_id is not None:
             config["session_id"] = session_id

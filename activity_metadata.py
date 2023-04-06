@@ -1,5 +1,4 @@
 from session_metadata import SessionMetadata, BlockMetadata
-from network_schedule import NetworkSchedule
 from math import gcd, floor, ceil
 from functools import reduce
 
@@ -95,21 +94,16 @@ class ActiveSet:
     #     self.gcd = gcd
 
     @staticmethod
-    def create_active_set(configs: [ActivityMetadata], session_ids, network_schedule=None):
-        if len(configs) != len(session_ids):
-            raise ValueError(f"Session IDs for all activities need to be defined. Currently, there are {len(configs)} "
-                             f"different config files set but {len(session_ids)} different sets of IDs defined.")
-
+    def create_active_set(dataset, role, network_schedule):
         active = ActiveSet()
         print(f"Your active set now has the following sessions:")
-        for i, ids in enumerate(session_ids):
-            print(f"\t{configs[i]} -- {len(ids)} sessions with IDs {ids}")
-            for ID in ids:
-                session_metadata = SessionMetadata(yaml_file=configs[i], session_id=ID)
-                if network_schedule is None:
-                    network_schedule = NetworkSchedule()
+        last_session_id = 0
+        for (config_file, number) in dataset.items():
+            ids = list(range(last_session_id, last_session_id + number))
+            print(f"\t{number} sessions of {config_file}_{role} with IDs {ids}")
+            for id in ids:
+                session_metadata = SessionMetadata(yaml_file=config_file + f"_{role}.yml", session_id=id)
                 active._merge_activity_metadata(ActivityMetadata(session_metadata, network_schedule))
-
         return active
 
     def _merge_activity_metadata(self, other: ActivityMetadata):
