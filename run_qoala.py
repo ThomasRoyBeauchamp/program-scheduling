@@ -279,8 +279,8 @@ def qkd_ck():
     ns.sim_reset()
 
     num_iterations = 2
-    alice_file = "configs/qkd_ck_alice.iqoala"
-    bob_file = "configs/qkd_ck_bob.iqoala"
+    alice_file = "configs/qkd_alice.iqoala"
+    bob_file = "configs/qkd_bob.iqoala"
 
     qkd_result = run_qkd(num_iterations, alice_file, bob_file)
     alice_results = qkd_result.alice_results.results
