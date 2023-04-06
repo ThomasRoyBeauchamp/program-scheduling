@@ -7,6 +7,7 @@ from typing import Dict, List
 import pandas as pd
 
 import netsquid as ns
+from netsquid.qubits import ketstates
 
 from qoala.lang.ehi import UnitModule
 from qoala.lang.parse import QoalaParser
@@ -21,7 +22,9 @@ from qoala.runtime.environment import NetworkInfo
 from qoala.runtime.program import BatchInfo, BatchResult, ProgramInput
 from qoala.runtime.schedule import TaskSchedule, TaskScheduleEntry
 from qoala.sim.build import build_network
+from qoala.sim.procnode import ProcNode
 from qoala.util.logging import LogManager
+from qoala.util.math import has_state
 
 
 def create_network_info(names: List[str]) -> NetworkInfo:
@@ -68,6 +71,7 @@ def create_batch(
 class PingPongResult:
     alice_results: Dict[int, BatchResult]
     bob_results: Dict[int, BatchResult]
+    alice_procnode: ProcNode
 
 
 def create_task_schedule(tasks, node_schedule_config):
@@ -165,7 +169,7 @@ def run_pingpong(num_iterations: int) -> PingPongResult:
     bob_results = bob_procnode.scheduler.get_batch_results()
     print("End of execution: " + str(ns.sim_time()))
 
-    return PingPongResult(alice_results, bob_results)
+    return PingPongResult(alice_results, bob_results, alice_procnode)
 
 
 @dataclass
@@ -251,8 +255,9 @@ def run_qkd(num_iterations: int, alice_file: str, bob_file: str):
 def pingpong():
     # LogManager.set_log_level("DEBUG")
 
-    def check(num_iterations):
+    def check(num_iterations, fidelity_threshold=0.75):
         ns.sim_reset()
+        # TODO: make it possible to send a different state??
         result = run_pingpong(num_iterations)
         print("finished running!!")
         assert len(result.alice_results) > 0
@@ -263,6 +268,8 @@ def pingpong():
             program_results = batch_results.results
             outcomes = [result.values["outcome"] for result in program_results]
             assert all(outcome == 1 for outcome in outcomes)
+        q0 = result.alice_procnode.qdevice.get_local_qubit(0)
+        assert has_state(q0, ketstates.s1, margin=1-fidelity_threshold)  # checking that state is |1>
 
     check(12)
 
