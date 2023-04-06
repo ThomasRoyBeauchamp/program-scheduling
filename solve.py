@@ -16,7 +16,7 @@ if __name__ == '__main__':
     dataset = {  # TODO: use this for argument to create_active_set
         "../configs/pingpong_alice.yml": 30
     }
-    active = ActiveSet.create_active_set(["../configs/pingpong_alice.yml"], [list(range(30))],
+    active = ActiveSet.create_active_set(["../configs/bqc_bob.yml"], [list(range(12))],
                                          network_schedule)
     active.scale_down()
     """
@@ -90,9 +90,9 @@ if __name__ == '__main__':
                                     dataset=dataset, solve_time=end-start)
 
         # TODO: make into a CL argument
-        save_node_schedule = False
+        save_node_schedule = True
         if save_node_schedule:
-            ns.save_node_schedule("../node_schedules/temp_pingpong_bob_12.csv")
+            ns.save_node_schedule("../node_schedules/temp_bqc_bob_12.csv")
 
         print("\nTime taken to finish: %.4f seconds" % (end - start))
     else:

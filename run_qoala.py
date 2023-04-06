@@ -299,6 +299,115 @@ def qkd_ck():
         assert alice["m0"] == bob["m0"]
 
 
+@dataclass
+class BqcResult:
+    alice_results: Dict[int, BatchResult]
+    bob_results: Dict[int, BatchResult]
+
+
+def run_bqc(alpha, beta, theta1, theta2, num_iterations: int) -> BqcResult:
+    ns.sim_reset()
+
+    num_qubits = 3
+    network_info = create_network_info(names=["alice", "bob"])
+    bob_id = network_info.get_node_id("bob")
+    alice_id = network_info.get_node_id("alice")
+
+    bob_node_cfg = create_procnode_cfg("bob", bob_id, num_qubits)
+    alice_node_cfg = create_procnode_cfg("alice", alice_id, num_qubits)
+
+    network_cfg = ProcNodeNetworkConfig.from_nodes_perfect_links(
+        nodes=[bob_node_cfg, alice_node_cfg], link_duration=1000
+    )
+    network = build_network(network_cfg, network_info)
+    bob_procnode = network.nodes["bob"]
+    alice_procnode = network.nodes["alice"]
+
+    bob_program = load_program("configs/bqc_bob.iqoala")
+    bob_inputs = [
+        ProgramInput({"alice_id": alice_id}) for _ in range(num_iterations)
+    ]
+
+    bob_unit_module = UnitModule.from_full_ehi(bob_procnode.memmgr.get_ehi())
+    bob_batch = create_batch(
+        bob_program, bob_unit_module, bob_inputs, num_iterations
+    )
+    bob_procnode.submit_batch(bob_batch)
+    bob_procnode.initialize_processes()
+    bob_tasks = bob_procnode.scheduler.get_tasks_to_schedule()
+    bob_schedule = TaskSchedule.consecutive(bob_tasks)
+    node_schedule_config = "node_schedules/temp_bqc_bob_12.csv"
+    bob_schedule = create_task_schedule(bob_tasks, node_schedule_config)
+    bob_procnode.scheduler.upload_schedule(bob_schedule)
+
+    alice_program = load_program("configs/bqc_alice.iqoala")
+    alice_inputs = [
+        ProgramInput(
+            {
+                "bob_id": bob_id,
+                "alpha": alpha,
+                "beta": beta,
+                "theta1": theta1,
+                "theta2": theta2,
+            }
+        )
+        for _ in range(num_iterations)
+    ]
+
+    alice_unit_module = UnitModule.from_full_ehi(alice_procnode.memmgr.get_ehi())
+    alice_batch = create_batch(
+        alice_program, alice_unit_module, alice_inputs, num_iterations
+    )
+    alice_procnode.submit_batch(alice_batch)
+    alice_procnode.initialize_processes()
+    alice_tasks = alice_procnode.scheduler.get_tasks_to_schedule()
+    node_schedule_config = "node_schedules/temp_bqc_alice_12.csv"
+    alice_schedule = create_task_schedule(alice_tasks, node_schedule_config)
+    # alice_schedule = TaskSchedule.consecutive(alice_tasks)
+    alice_procnode.scheduler.upload_schedule(alice_schedule)
+
+    network.start()
+    ns.sim_run()
+
+    alice_results = alice_procnode.scheduler.get_batch_results()
+    bob_results = bob_procnode.scheduler.get_batch_results()
+
+    return BqcResult(alice_results, bob_results)
+
+
+def bqc():
+    # Effective computation: measure in Z the following state:
+    # H Rz(beta) H Rz(alpha) |+>
+    # m2 should be this outcome
+
+    # angles are in multiples of pi/16
+
+    # LogManager.set_log_level("DEBUG")
+    # LogManager.log_to_file("test_run.log")
+
+    def check(alpha, beta, theta1, theta2, expected, num_iterations):
+        ns.sim_reset()
+        bqc_result = run_bqc(
+            alpha=alpha,
+            beta=beta,
+            theta1=theta1,
+            theta2=theta2,
+            num_iterations=num_iterations,
+        )
+        assert len(bqc_result.alice_results) > 0
+        assert len(bqc_result.bob_results) > 0
+
+        bob_batch_results = bqc_result.bob_results
+        for _, batch_results in bob_batch_results.items():
+            program_results = batch_results.results
+            m2s = [result.values["m2"] for result in program_results]
+            assert all(m2 == expected for m2 in m2s)
+        print("yay BQC worked")
+
+    check(alpha=8, beta=8, theta1=0, theta2=0, expected=0, num_iterations=12)
+
+
 if __name__ == "__main__":
-    pingpong()
+    # pingpong()
     # qkd_ck()
+    bqc()
