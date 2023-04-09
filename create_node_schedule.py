@@ -84,12 +84,12 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
     # here you can possibly define other heuristics to use
     heuristics = {}
 
-    print(f"\nTrying to construct a node schedule of length {schedule_size}")
+    print(f"\nTrying to construct a node schedule of length {schedule_size} ({schedule_size * active.gcd})")
     start = time.time()
     result = ace.solve(instance, dict_options=heuristics)
     end = time.time()
 
-    if status() is SAT:
+    if status() is SAT or status() is OPTIMUM:
         active.scale_up()
         start_times = [s * active.gcd for s in solution().values]
         ns = NodeSchedule(active, start_times)

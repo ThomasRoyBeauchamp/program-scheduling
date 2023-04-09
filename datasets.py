@@ -1,28 +1,28 @@
 dataset_database = {
     0: {
-        "../configs/bqc": 30,
+        "../configs/bqc": 18,
     },
     1: {
-        "../configs/qkd": 30,
+        "../configs/qkd": 18,
     },
     2: {
-        "../configs/pingpong": 30,
+        "../configs/pingpong": 18,
     },
     3: {
-        "../configs/bqc": 15,
-        "../configs/qkd": 15,
+        "../configs/bqc": 9,
+        "../configs/qkd": 9,
     },
     4: {
-        "../configs/qkd": 15,
-        "../configs/pingpong": 15,
+        "../configs/qkd": 9,
+        "../configs/pingpong": 9,
     },
     5: {
-        "../configs/bqc": 15,
-        "../configs/pingpong": 15,
+        "../configs/bqc": 9,
+        "../configs/pingpong": 9,
     },
     6: {
-        "../configs/bqc": 10,
-        "../configs/qkd": 10,
-        "../configs/pingpong": 10
+        "../configs/bqc": 6,
+        "../configs/qkd": 6,
+        "../configs/pingpong": 6
     }
 }
