@@ -109,14 +109,15 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
             ns.save_success_metrics(name=save_metrics_name, filename=save_metrics_filename, role=role,
                                     type=schedule_type, network_schedule=network_schedule, dataset=dataset,
                                     solve_time=end - start)
-
-        print("\nTime taken to finish: %.4f seconds" % (end - start))
-        clear()
-    else:
-        print("\nNo feasible node schedule was found. "
+    elif status() is UNKNOWN:
+        print("\n The solver cannot find a solution. The problem is probably too large.")
+    elif status() is UNSAT:
+        print("\nNo feasible node schedule can be found. "
               "Consider making the length of node schedule longer or finding a better network schedule.")
-        print("\nTime taken to finish: %.4f seconds" % (end - start))
-        clear()
+    else:
+        print("\nSomething else went wrong.")
+    print("\nTime taken to finish: %.4f seconds" % (end - start))
+    clear()
 
 
 def create_dataset(dataset_id, n_bqc, n_qkd, n_pp):
