@@ -6,6 +6,10 @@ class NetworkSchedule:
         self.durations = durations
         self.sessions = sessions
 
+    # TODO: save a network schedule
+    # TODO: calculate length and probabilities given app types and number of sessions
+    # TODO: generate a random network schedule given the length and probabilities
+
     def get_session_start_times(self, session_id):
         try:
             self.sessions.index(session_id)
