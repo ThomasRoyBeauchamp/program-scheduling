@@ -2,6 +2,7 @@
 
 import os
 import yaml
+import time
 from dataclasses import dataclass
 from typing import Dict, List
 import pandas as pd
@@ -212,9 +213,12 @@ def run_qkd(num_iterations: int, alice_file: str, bob_file: str):
     print([str(t) for t in alice_tasks])
     alice_schedule = TaskSchedule.consecutive(alice_tasks)
 
-    with open("node_schedules/temp_qkd_ck_alice_indices.yml", 'r') as file_handle:
-        indices = yaml.load(file_handle, yaml.SafeLoader) or {}
-    alice_schedule = TaskSchedule([TaskScheduleEntry(alice_tasks[indices[i]]) for i in range(len(indices))])
+    node_schedule_config = "node_schedules/dataset_1_alice_HEU.csv"
+    alice_schedule = create_task_schedule(alice_tasks, node_schedule_config)
+
+    # with open("node_schedules/dataset_unknown_alice_HEU.csv", 'r') as file_handle:
+    #     indices = yaml.load(file_handle, yaml.SafeLoader) or {}
+    # alice_schedule = TaskSchedule([TaskScheduleEntry(alice_tasks[indices[i]]) for i in range(len(indices))])
 
     print("\nAlice schedule:")
     print(alice_schedule)
@@ -233,9 +237,11 @@ def run_qkd(num_iterations: int, alice_file: str, bob_file: str):
     print("\n\nBob tasks:")
     print([str(t) for t in bob_tasks])
     bob_schedule = TaskSchedule.consecutive(bob_tasks)
-    with open("node_schedules/temp_qkd_ck_bob_indices.yml", 'r') as file_handle:
-        indices = yaml.load(file_handle, yaml.SafeLoader) or {}
-    bob_schedule = TaskSchedule([TaskScheduleEntry(bob_tasks[indices[i]]) for i in range(len(indices))])
+    # with open("node_schedules/temp_qkd_ck_bob_indices.yml", 'r') as file_handle:
+    #     indices = yaml.load(file_handle, yaml.SafeLoader) or {}
+    # bob_schedule = TaskSchedule([TaskScheduleEntry(bob_tasks[indices[i]]) for i in range(len(indices))])
+    node_schedule_config = "node_schedules/dataset_1_bob_HEU.csv"
+    bob_schedule = create_task_schedule(bob_tasks, node_schedule_config)
 
     print("\nBob schedule:")
     print(bob_schedule)
@@ -255,7 +261,7 @@ def run_qkd(num_iterations: int, alice_file: str, bob_file: str):
 def pingpong():
     # LogManager.set_log_level("DEBUG")
 
-    def check(num_iterations, fidelity_threshold=0.75):
+    def check(num_iterations, fidelity_threshold=2/3):
         ns.sim_reset()
         # TODO: make it possible to send a different state??
         result = run_pingpong(num_iterations)
@@ -278,7 +284,7 @@ def qkd_ck():
     # LogManager.set_log_level("DEBUG")
     ns.sim_reset()
 
-    num_iterations = 2
+    num_iterations = 18
     alice_file = "configs/qkd_alice.iqoala"
     bob_file = "configs/qkd_bob.iqoala"
 
@@ -409,5 +415,8 @@ def bqc():
 
 if __name__ == "__main__":
     # pingpong()
-    # qkd_ck()
-    bqc()
+    start = time.time()
+    qkd_ck()
+    end = time.time()
+    print(end - start)
+    # bqc()
