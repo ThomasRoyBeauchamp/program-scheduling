@@ -1,28 +1,30 @@
-dataset_database = {
-    0: {
-        "../configs/bqc": 18,
-    },
-    1: {
-        "../configs/qkd": 18,
-    },
-    2: {
-        "../configs/pingpong": 18,
-    },
-    3: {
-        "../configs/bqc": 9,
-        "../configs/qkd": 9,
-    },
-    4: {
-        "../configs/qkd": 9,
-        "../configs/pingpong": 9,
-    },
-    5: {
-        "../configs/bqc": 9,
-        "../configs/pingpong": 9,
-    },
-    6: {
-        "../configs/bqc": 6,
-        "../configs/qkd": 6,
-        "../configs/pingpong": 6
-    }
-}
+def create_dataset(id, n_sessions):
+    if id == 0:
+        return {"../configs/bqc": n_sessions}
+    elif id == 1:
+        return {"../configs/pingpong": n_sessions}
+    elif id == 2:
+        return {"../configs/qkd": n_sessions}
+    elif id == 3:
+        return {
+            "../configs/bqc": n_sessions / 2,
+            "../configs/pingpong": n_sessions / 2,
+        }
+    elif id == 4:
+        return {
+            "../configs/bqc": n_sessions / 2,
+            "../configs/qkd": n_sessions / 2,
+        }
+    elif id == 5:
+        return {
+            "../configs/qkd": n_sessions / 2,
+            "../configs/pingpong": n_sessions / 2,
+        }
+    elif id == 6:
+        return {
+            "../configs/bqc": n_sessions / 3,
+            "../configs/pingpong": n_sessions / 3,
+            "../configs/qkd": n_sessions / 3
+        }
+    else:
+        print(f"Dataset ID {id} not recognised.")
