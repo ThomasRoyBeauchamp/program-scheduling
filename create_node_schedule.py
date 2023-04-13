@@ -1,5 +1,6 @@
 import time
 from argparse import ArgumentParser
+import numpy as np
 
 from pycsp3 import *
 from node_schedule import NodeSchedule
@@ -29,9 +30,11 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
     if network_schedule is None:
         network_schedule = NetworkSchedule()
     # TODO: read out network schedule if the config is defined
+    network_schedule = NetworkSchedule([1000, 600000], [500000, 500000], [0, 0])
 
     active = ActiveSet.create_active_set(dataset=dataset, role=role, network_schedule=network_schedule)
     active.scale_down()
+    network_schedule.start_times = np.divide(network_schedule.start_times, active.gcd)
     """
         TODO: How to define length of node_schedule?
         If it's too low, there might not be any feasible solution. 
@@ -57,19 +60,24 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
         # resource constraints
         [cumulative_for(k) <= capacity for k, capacity in enumerate(capacities)],
         # constraints for max time lags
-        [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)]
+        [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)
+         if active.types[i] != "QC"]
     )
 
-    # TODO: the above max time lags constraint does not apply to QC if network schedule is defined
-    # TODO: make a new max time lags constraint that applies to QC if network schedule is defined
-
     if network_schedule.is_defined:
-        # TODO: this needs to be fixed when we allow for multiple QC blocks in a session (also rescale)
-        # satisfy(
-        # [(x[i] == network_schedule.get_session_start_time(active.ids[i]) for i in range(active.n_blocks - 1)
-        #   if network_schedule.is_defined and active.types[i] == "QC")]
-        # )
-        pass
+        satisfy(
+            [(x[i] in network_schedule.get_session_start_times(active.ids[i]) for i
+              in range(active.n_blocks - 1) if active.types[i] == "QC")],
+            # TODO: make a new max time lags constraint that applies to QC if network schedule is defined
+            # you never schedule a different session in between? but how to deal with critical sections?
+            # [x[i] == next_network_schedule_slot(x[i-1], network_schedule) for i in range(active.n_blocks - 1)
+            #  if active.d_max[i] == 0 and active.types[i] == "QC"]
+        )
+    else:
+        satisfy(
+            [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)
+             if active.types[i] == "QC"]
+        )
 
     if schedule_type == "NAIVE":
         satisfy(
@@ -101,7 +109,9 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
 
         ns.print()
 
-        name = f"dataset_{dataset_id if dataset_id is not None else 'unknown'}_{role}_{schedule_type}"
+        # name of a node schedule needs to include: n_sessions, dataset, NS ID, schedule type, alice/bob
+        name = f"{sum(dataset.values())}-sessions_dataset-{dataset_id if dataset_id is not None else 'unknown'}_" \
+               f"NS-{network_schedule}_schedule-{schedule_type}_node-{role}"
         if save_schedule:
             save_schedule_filename = f"../node_schedules/{name}.csv" if save_schedule_filename is None \
                 else save_schedule_filename
