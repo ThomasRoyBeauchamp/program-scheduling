@@ -72,9 +72,8 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
         pass
 
     if schedule_type == "NAIVE":
-        # TODO: figure out a way to make this more effective
         satisfy(
-            [active.d_min[i] <= (x[i+1] - (x[i] + active.durations[i])) for i in range(active.n_blocks - 1)],
+            [x[i] < x[i + 1] for i in range(active.n_blocks - 1)],
         )
 
     # optional objective function
