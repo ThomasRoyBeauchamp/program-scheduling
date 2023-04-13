@@ -5,15 +5,17 @@ from pycsp3 import *
 from node_schedule import NodeSchedule
 from activity_metadata import ActiveSet
 from network_schedule import NetworkSchedule
-from datasets import dataset_database
+from datasets import create_dataset
 
 
 def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HEU", save_schedule=False,
                          save_schedule_filename=None, save_metrics=False, save_metrics_name=None,
                          save_metrics_filename=None, dataset_id=None):
+    # TODO: return a status code? would be nice to know if a node schedule was not created because NS is infeasible
     """
 
     :param dataset:
+    :param role:
     :param network_schedule:
     :param schedule_type:
     :param save_schedule:
@@ -21,6 +23,7 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
     :param save_metrics:
     :param save_metrics_name:
     :param save_metrics_filename:
+    :param dataset_id
     :return:
     """
     if network_schedule is None:
@@ -34,11 +37,10 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
         If it's too low, there might not be any feasible solution. 
         If it's too high, we are unnecessarily solving a more complex problem. 
     """
-    schedule_size = 2 * int(sum(active.durations))
+    schedule_size = 2 * int(sum(active.durations))  # TODO: retrieve from length of network schedule
     capacities = [1, 1]  # capacity of [CPU, QPU]
 
     # x[i] is the starting time of the ith job
-    # TODO: already set the initial domains more efficiently??
     x = VarArray(size=active.n_blocks, dom=range(schedule_size))
 
     # taken from http://pycsp.org/documentation/models/COP/RCPSP/
@@ -58,6 +60,9 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
         [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)]
     )
 
+    # TODO: the above max time lags constraint does not apply to QC if network schedule is defined
+    # TODO: make a new max time lags constraint that applies to QC if network schedule is defined
+
     if network_schedule.is_defined:
         # TODO: this needs to be fixed when we allow for multiple QC blocks in a session (also rescale)
         # satisfy(
@@ -67,6 +72,7 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
         pass
 
     if schedule_type == "NAIVE":
+        # TODO: figure out a way to make this more effective
         satisfy(
             [active.d_min[i] <= (x[i+1] - (x[i] + active.durations[i])) for i in range(active.n_blocks - 1)],
         )
@@ -120,12 +126,12 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
     clear()
 
 
-def create_dataset(dataset_id, n_bqc, n_qkd, n_pp):
+def get_dataset(dataset_id, n_sessions, n_bqc, n_qkd, n_pp):
     if dataset_id is None and (n_bqc + n_qkd + n_pp) == 0:
         raise ValueError("No sessions are being scheduled. Please define either a dataset or "
                          "number of specific sessions to schedule.")
     if dataset_id is not None:
-        return dataset_database.get(dataset_id)
+        return create_dataset(dataset_id, n_sessions)
     else:
         d = {}
         for n, c in list(zip([n_bqc, n_qkd, n_pp], ["../configs/bqc", "../configs/qkd", "../configs/pingpong"])):
@@ -139,6 +145,9 @@ if __name__ == '__main__':
     # dataset
     parser.add_argument('-d', '--dataset', required=False, type=int, default=None,
                         help="Dataset of sessions to schedule.")
+    # number of sessions in a dataset
+    parser.add_argument('-s', '--n_sessions', required=False, type=int, default=18,
+                        help="Total number of sessions in a dataset.")
     # number of sessions bqc
     parser.add_argument('-bqc', '--n_bqc_sessions', required=False, type=int, default=0,
                         help="Number of BQC sessions to schedule.")
@@ -178,7 +187,8 @@ if __name__ == '__main__':
 
     args, unknown = parser.parse_known_args()
 
-    dataset = create_dataset(args.dataset, args.n_bqc_sessions, args.n_qkd_sessions, args.n_pp_sessions)
+    dataset = get_dataset(args.dataset, args.n_sessions,
+                          args.n_bqc_sessions, args.n_qkd_sessions, args.n_pp_sessions)
 
     if args.opt:
         schedule_type = "OPT"
