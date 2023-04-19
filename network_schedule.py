@@ -29,32 +29,32 @@ class NetworkSchedule:
         self.length = NetworkSchedule._calculate_length(self.dataset)
 
         if start_times is None and sessions is None:
-            self.generate_random_network_schedule()
+            path = os.path.dirname(__file__) + "/network_schedules"
+            if not os.path.exists(path):
+                os.makedirs(path)
+            if filename is None:
+                filename = f"network-schedule_{self.n_sessions}-sessions_dataset-{self.dataset_id}"
+            count = len([f for f in os.listdir(path) if filename in f])
+            self.generate_random_network_schedule(seed=count)
             if save:
-                self.save_network_schedule(filename=filename)
+                self.save_network_schedule(filename=filename, id=count)
         else:
             assert len(sessions) == len(start_times)
             self.sessions = sessions
             self.start_times = start_times
 
-    def save_network_schedule(self, filename=None):
+    def save_network_schedule(self, filename, id):
         """
-        Saves the network schedule. First checks if network_schedules folder is created. Assigns a filename
-        based on the dataset and number of sessions is None is supplied. Adds a network schedule ID based on
-        existing network schedules.
+        Saves the network schedule. First checks if network_schedules folder is created.
 
-        :param filename: Optional filename for saving the network schedule instance
+        :param filename: Filename for saving the network schedule instance
+        :param id: Index of the network schedule also used as a seed for random generation
         :return:
         """
         path = os.path.dirname(__file__) + "/network_schedules"
-        if not os.path.exists(path):
-            os.makedirs(path)
-        if filename is None:
-            filename = f"network-schedule_{self.n_sessions}-sessions_dataset-{self.dataset_id}"
-        count = len([f for f in os.listdir(path) if filename in f])
         df = pd.DataFrame(data={"session": self.sessions,
                                 "start_time": self.start_times})
-        df.to_csv(f"{path}/{filename}_id-{count}.csv", index=False)
+        df.to_csv(f"{path}/{filename}_id-{id}.csv", index=False)
 
     def generate_random_network_schedule(self, seed=42):
         """

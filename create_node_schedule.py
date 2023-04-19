@@ -1,6 +1,7 @@
 import time
 from argparse import ArgumentParser
 import numpy as np
+import pandas as pd
 
 from pycsp3 import *
 from node_schedule import NodeSchedule
@@ -27,20 +28,26 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
     :param dataset_id
     :return:
     """
-    if network_schedule is None:
-        network_schedule = NetworkSchedule()
-    # TODO: read out network schedule if the config is defined
-    network_schedule = NetworkSchedule([1000, 600000], [500000, 500000], [0, 0])
+    if network_schedule is not None:
+        path = os.path.dirname(__file__) + "/network_schedules/"
+        csv = pd.read_csv(path + network_schedule)
+        parts = network_schedule.split("_")
+        assert int(parts[2].split("-")[1]) == dataset_id
+        assert int(parts[1].split("-")[0]) == sum(dataset.values())
+        network_schedule = NetworkSchedule(dataset_id=dataset_id, n_sessions=sum(dataset.values()),
+                                           sessions=csv["session"], start_times=csv["start_time"])
 
     active = ActiveSet.create_active_set(dataset=dataset, role=role, network_schedule=network_schedule)
     active.scale_down()
-    network_schedule.start_times = np.divide(network_schedule.start_times, active.gcd)
+    if network_schedule is not None:
+        network_schedule.start_times = np.divide(network_schedule.start_times, active.gcd)
+        network_schedule.length = network_schedule.length / active.gcd
     """
         TODO: How to define length of node_schedule?
         If it's too low, there might not be any feasible solution. 
         If it's too high, we are unnecessarily solving a more complex problem. 
     """
-    schedule_size = 2 * int(sum(active.durations))  # TODO: retrieve from length of network schedule
+    schedule_size = network_schedule.length if network_schedule is not None else 2 * int(sum(active.durations))
     capacities = [1, 1]  # capacity of [CPU, QPU]
 
     # x[i] is the starting time of the ith job
@@ -58,13 +65,14 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
         # precedence constraints
         [x[i] + active.durations[i] <= x[j] for i in range(active.n_blocks) for j in active.successors[i]],
         # resource constraints
+        # TODO: define using NoOverlap constraint instead (one for QPU, one for CPU)
         [cumulative_for(k) <= capacity for k, capacity in enumerate(capacities)],
         # constraints for max time lags
         [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)
          if active.types[i] != "QC"]
     )
 
-    if network_schedule.is_defined:
+    if network_schedule is not None:
         satisfy(
             [(x[i] in network_schedule.get_session_start_times(active.ids[i]) for i
               in range(active.n_blocks - 1) if active.types[i] == "QC")],
@@ -106,12 +114,12 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
         active.scale_up()
         start_times = [s * active.gcd for s in solution().values]
         ns = NodeSchedule(active, start_times)
-
         ns.print()
 
         # name of a node schedule needs to include: n_sessions, dataset, NS ID, schedule type, alice/bob
+        network_schedule_id = None if network_schedule is None else network_schedule.split('_')[3].split('-')[1]
         name = f"{sum(dataset.values())}-sessions_dataset-{dataset_id if dataset_id is not None else 'unknown'}_" \
-               f"NS-{network_schedule}_schedule-{schedule_type}_node-{role}"
+               f"NS-{network_schedule_id}_schedule-{schedule_type}_node-{role}"
         if save_schedule:
             save_schedule_filename = f"../node_schedules/{name}.csv" if save_schedule_filename is None \
                 else save_schedule_filename

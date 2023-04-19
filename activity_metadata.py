@@ -32,7 +32,7 @@ class ActivityMetadata:
         return [int(classical), int(quantum)]
 
     def _update_qc_blocks_based_on_network_schedule(self, network_schedule):
-        if network_schedule is None or not network_schedule.is_defined:
+        if network_schedule is None:
             return
         durations = network_schedule.get_session_durations(self.session_id)
         for i in range(self.n_blocks):
