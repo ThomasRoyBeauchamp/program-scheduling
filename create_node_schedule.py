@@ -35,19 +35,22 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
         assert int(parts[2].split("-")[1]) == dataset_id
         assert int(parts[1].split("-")[0]) == sum(dataset.values())
         network_schedule = NetworkSchedule(dataset_id=dataset_id, n_sessions=sum(dataset.values()),
-                                           sessions=csv["session"], start_times=csv["start_time"])
+                                           sessions=list(map(lambda x: int(x), csv["session"])),
+                                           start_times=list(map(lambda x: int(x), csv["start_time"])))
 
     active = ActiveSet.create_active_set(dataset=dataset, role=role, network_schedule=network_schedule)
     active.scale_down()
     if network_schedule is not None:
+        # TODO: rewrite sessions ids with actual session ids
         network_schedule.start_times = np.divide(network_schedule.start_times, active.gcd)
+        network_schedule.start_times = list(map(lambda x: int(x), network_schedule.start_times))
         network_schedule.length = network_schedule.length / active.gcd
     """
         TODO: How to define length of node_schedule?
         If it's too low, there might not be any feasible solution. 
         If it's too high, we are unnecessarily solving a more complex problem. 
     """
-    schedule_size = network_schedule.length if network_schedule is not None else 2 * int(sum(active.durations))
+    schedule_size = int(network_schedule.length) if network_schedule is not None else 2 * int(sum(active.durations))
     capacities = [1, 1]  # capacity of [CPU, QPU]
 
     # x[i] is the starting time of the ith job
@@ -72,14 +75,26 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
          if active.types[i] != "QC"]
     )
 
+    def get_QC_indices(without=None):
+        indices = [i for i in range(0, active.n_blocks - 1) if active.types[i] == "QC"]
+        if without is not None:
+            for remove in without:
+                indices.remove(remove)
+        return indices
+
+    def get_CS_indices():
+        indices = []
+        for i, j in enumerate(get_QC_indices()):
+            if active.d_max[j] == 0:
+                # appending (id of prev QC block, id of QC block in critical section)
+                indices.append((get_QC_indices()[i - 1], j))
+        return indices
+
     if network_schedule is not None:
         satisfy(
-            [(x[i] in network_schedule.get_session_start_times(active.ids[i]) for i
-              in range(active.n_blocks - 1) if active.types[i] == "QC")],
-            # TODO: make a new max time lags constraint that applies to QC if network schedule is defined
-            # you never schedule a different session in between? but how to deal with critical sections?
-            # [x[i] == next_network_schedule_slot(x[i-1], network_schedule) for i in range(active.n_blocks - 1)
-            #  if active.d_max[i] == 0 and active.types[i] == "QC"]
+            [x[i] in set(network_schedule.get_session_start_times(active.ids[i])) for i in get_QC_indices()],
+            [x[i] < x[start] or x[end] < x[i] for (start, end) in get_CS_indices()
+             for i in get_QC_indices(without=[start, end])],
         )
     else:
         satisfy(

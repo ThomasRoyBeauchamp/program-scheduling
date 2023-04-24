@@ -34,10 +34,9 @@ class ActivityMetadata:
     def _update_qc_blocks_based_on_network_schedule(self, network_schedule):
         if network_schedule is None:
             return
-        durations = network_schedule.get_session_durations(self.session_id)
         for i in range(self.n_blocks):
             if self.types[i] == "QC":
-                self.durations[i] = durations.pop(0)
+                self.durations[i] = network_schedule.QC_LENGTH
 
     def _calculate_time_lags(self, session_metadata: SessionMetadata):
         """
