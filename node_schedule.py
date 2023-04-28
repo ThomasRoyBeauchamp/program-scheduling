@@ -78,13 +78,14 @@ class NodeSchedule:
                 cprint(f"\tt={b[0]}: {b[1]} ({b[2]}) -- (duration = {b[3]} -> end time = {b[0] + b[3]})", "light_blue")
 
     def save_node_schedule(self, filename):
-        if not os.path.exists(os.path.dirname(__file__) + "/node_schedules"):
-            os.makedirs(os.path.dirname(__file__) + "/node_schedules")
+        path = os.path.dirname(__file__) + "/node_schedules"
+        if not os.path.exists(path):
+            os.makedirs(path)
         df = pd.DataFrame(data={"index": list(range(self.n_activities)),
                                 "type": self.types,
                                 "start_time": self.start_times,
                                 "duration": self.durations})
-        df.to_csv(filename, index=False)
+        df.to_csv(path + "/" + filename, index=False)
 
     def _prep_PU_for_print(self, activities):
         temp = ""
