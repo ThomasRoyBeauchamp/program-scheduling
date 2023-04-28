@@ -1,66 +1,12 @@
-import os
-import yaml
-from typing import List
 from argparse import ArgumentParser
 
+import yaml
 from qoala.lang.ehi import UnitModule
-from qoala.lang.parse import QoalaParser
-from qoala.lang.program import QoalaProgram
-from qoala.runtime.config import (
-    ProcNodeNetworkConfig,
-    ProcNodeConfig,
-    TopologyConfig,
-    LatenciesConfig
-)
-from qoala.runtime.environment import NetworkInfo
-from qoala.runtime.program import ProgramInput, BatchInfo
+from qoala.runtime.config import ProcNodeNetworkConfig
+from qoala.runtime.program import ProgramInput
 from qoala.sim.build import build_network
 
-sourcecode = "https://github.com/QuTech-Delft/qoala-sim/blob/" \
-             "635728c60ded03e84f254ab413071a6392e19a7c/tests/integration/pingpong/test_pingpong.py"
-
-
-# copied from `sourcecode`
-def load_program(path: str) -> QoalaProgram:
-    path = os.path.join(os.path.dirname(__file__), path)
-    with open(path) as file:
-        text = file.read()
-    return QoalaParser(text).parse()
-
-
-# copied from `sourcecode`
-def create_network_info(names: List[str]) -> NetworkInfo:
-    env = NetworkInfo.with_nodes({i: name for i, name in enumerate(names)})
-    env.set_global_schedule([0, 1, 2])
-    env.set_timeslot_len(1e6)
-    return env
-
-
-# copied from `sourcecode`
-def create_procnode_cfg(name: str, id: int, num_qubits: int) -> ProcNodeConfig:
-    return ProcNodeConfig(
-        node_name=name,
-        node_id=id,
-        topology=TopologyConfig.perfect_config_uniform_default_params(num_qubits),
-        latencies=LatenciesConfig(
-            host_instr_time=500, host_peer_latency=100_000, qnos_instr_time=1000
-        ),
-    )
-
-
-def create_batch(
-        program: QoalaProgram,
-        unit_module: UnitModule,
-        inputs: List[ProgramInput],
-        num_iterations: int,
-) -> BatchInfo:
-    return BatchInfo(
-        program=program,
-        unit_module=unit_module,
-        inputs=inputs,
-        num_iterations=num_iterations,
-        deadline=0,
-    )
+from run_qoala import create_network_info, create_batch, load_program, create_procnode_cfg
 
 
 def retrieve_tasks(config, save_filename=None, num_qubits=3):
@@ -75,7 +21,7 @@ def retrieve_tasks(config, save_filename=None, num_qubits=3):
     bob_node_cfg = create_procnode_cfg("bob", bob_id, num_qubits)
 
     network_cfg = ProcNodeNetworkConfig.from_nodes_perfect_links(
-        nodes=[alice_node_cfg, bob_node_cfg], link_duration=500_000
+        nodes=[alice_node_cfg, bob_node_cfg], link_duration=380_000
     )
     network = build_network(network_cfg, network_info)
     alice_procnode = network.nodes["alice"]
