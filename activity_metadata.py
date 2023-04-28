@@ -1,3 +1,5 @@
+import sys
+
 from session_metadata import SessionMetadata, BlockMetadata
 from math import gcd, floor, ceil
 from functools import reduce
@@ -20,7 +22,8 @@ class ActivityMetadata:
 
         self.durations = [b.duration for b in session_metadata.blocks]
         self._update_qc_blocks_based_on_network_schedule(network_schedule)
-        self.d_min, self.d_max = self._calculate_time_lags(session_metadata)
+        self.d_max = self._calculate_time_lags(session_metadata)
+        self.qc_indices = self._calculate_qc_indices(session_metadata)
 
     @staticmethod
     def _calculate_resource_reqs(block_metadata: BlockMetadata):
@@ -30,6 +33,18 @@ class ActivityMetadata:
         # sanity check that block is either fully classical or fully quantum
         assert (classical and not quantum) or (not classical and quantum)
         return [int(classical), int(quantum)]
+
+    @staticmethod
+    def _calculate_qc_indices(session_metadata: SessionMetadata):
+        last_index = 0
+        qc_indices = []
+        for b in session_metadata.blocks:
+            if b.type != "QC":
+                qc_indices.append(None)
+            else:
+                qc_indices.append(last_index)
+                last_index += 1
+        return qc_indices
 
     def _update_qc_blocks_based_on_network_schedule(self, network_schedule):
         if network_schedule is None:
@@ -52,17 +67,18 @@ class ActivityMetadata:
         # we define min/max time lags between consecutive pairs of blocks
         # d^{min}_{ij} can be accessed through d_min[j] (and similarly for d^{max}_{ij})
 
-        remaining_time = self.app_deadline - sum(self.durations)
+        if self.app_deadline is not None:
+            remaining_time = self.app_deadline - sum(self.durations)
 
         d_max = []
         for i, block in enumerate(session_metadata.blocks):
             if block.CS is None or i == 0:
-                d_max.append(remaining_time)
+                d_max.append(None if self.app_deadline is None else remaining_time)
             else:
-                d_max.append(0 if session_metadata.blocks[i-1].CS == block.CS else remaining_time)
+                d_max.append(0 if session_metadata.blocks[i-1].CS == block.CS else None)
 
         assert len(d_max) == self.n_blocks  # sanity check
-        return [0] * self.n_blocks, d_max
+        return d_max
 
 
 class ActiveSet:
@@ -74,10 +90,10 @@ class ActiveSet:
         self.resource_reqs = []
         self.types = []
         self.durations = []
-        self.d_min = []
         self.d_max = []
         self.block_names = []
         self.gcd = None
+        self.qc_indices = []
 
     # TODO: something like this is needed for the test but do it in a pythonic way (kwargs)
     # def __init__(self, n_blocks, ids, succ, reqs, types, durations, d_min, d_max, block_names, gcd):
@@ -103,6 +119,7 @@ class ActiveSet:
             for id in ids:
                 session_metadata = SessionMetadata(yaml_file=config_file + f"_{role}.yml", session_id=id)
                 active._merge_activity_metadata(ActivityMetadata(session_metadata, network_schedule))
+            last_session_id += number
         return active
 
     def _merge_activity_metadata(self, other: ActivityMetadata):
@@ -117,15 +134,14 @@ class ActiveSet:
         self.block_names += other.block_names
         self.types += other.types
         self.durations += other.durations
-        self.d_min += other.d_min
         self.d_max += other.d_max
+        self.qc_indices += other.qc_indices
 
     def scale_down(self):
         self.gcd = reduce(gcd, self.durations)
         self.durations = [int(d / self.gcd) for d in self.durations]
-        # these might not be integers but as long as d_min is rounded down and d_max is rounded up, it should be fine
-        self.d_min = [ceil(d / self.gcd) for d in self.d_min]
-        self.d_max = [floor(d / self.gcd) for d in self.d_max]
+        # these might not be integers but as long as d_max is rounded up, it should be fine
+        self.d_max = [floor(d / self.gcd) if d is not None else None for d in self.d_max]
 
     def scale_up(self):
         self.durations = [d * self.gcd for d in self.durations]
