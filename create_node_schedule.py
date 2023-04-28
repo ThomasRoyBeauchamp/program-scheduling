@@ -10,8 +10,8 @@ from network_schedule import NetworkSchedule
 from datasets import create_dataset
 
 
-def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HEU", save_schedule=False,
-                         save_schedule_filename=None, save_metrics=False, save_metrics_name=None,
+def create_node_schedule(dataset, role, network_schedule=None, network_schedule_name=None, schedule_type="HEU",
+                         save_schedule=False, save_schedule_filename=None, save_metrics=False, save_metrics_name=None,
                          save_metrics_filename=None, dataset_id=None):
     # TODO: return a status code? would be nice to know if a node schedule was not created because NS is infeasible
     """
@@ -29,28 +29,30 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
     :return:
     """
     if network_schedule is not None:
-        path = os.path.dirname(__file__) + "/network_schedules/"
-        csv = pd.read_csv(path + network_schedule)
-        parts = network_schedule.split("_")
+        network_schedule_name = f"network-schedule_{network_schedule.n_sessions}-sessions_dataset-" \
+                                f"{network_schedule.dataset_id}_id-{network_schedule.id}.csv"
+    elif network_schedule_name is not None:
+        path = os.path.dirname(__file__) + "network_schedules/"
+        csv = pd.read_csv(path + network_schedule_name)
+        parts = network_schedule_name.split("_")
         assert int(parts[2].split("-")[1]) == dataset_id
         assert int(parts[1].split("-")[0]) == sum(dataset.values())
         network_schedule = NetworkSchedule(dataset_id=dataset_id, n_sessions=sum(dataset.values()),
-                                           sessions=list(map(lambda x: int(x), csv["session"])),
+                                           sessions=list(csv["session"]),
                                            start_times=list(map(lambda x: int(x), csv["start_time"])))
+    else:
+        network_schedule = None
 
     active = ActiveSet.create_active_set(dataset=dataset, role=role, network_schedule=network_schedule)
     active.scale_down()
     if network_schedule is not None:
-        # TODO: rewrite sessions ids with actual session ids
+        network_schedule.rewrite_sessions(dataset)
         network_schedule.start_times = np.divide(network_schedule.start_times, active.gcd)
         network_schedule.start_times = list(map(lambda x: int(x), network_schedule.start_times))
         network_schedule.length = network_schedule.length / active.gcd
-    """
-        TODO: How to define length of node_schedule?
-        If it's too low, there might not be any feasible solution. 
-        If it's too high, we are unnecessarily solving a more complex problem. 
-    """
-    schedule_size = int(network_schedule.length) if network_schedule is not None else 2 * int(sum(active.durations))
+
+    # TODO: how to decide on the extra length?
+    schedule_size = int(network_schedule.length) + 20000 if network_schedule is not None else 2 * int(sum(active.durations))
     capacities = [1, 1]  # capacity of [CPU, QPU]
 
     # x[i] is the starting time of the ith job
@@ -68,11 +70,10 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
         # precedence constraints
         [x[i] + active.durations[i] <= x[j] for i in range(active.n_blocks) for j in active.successors[i]],
         # resource constraints
-        # TODO: define using NoOverlap constraint instead (one for QPU, one for CPU)
         [cumulative_for(k) <= capacity for k, capacity in enumerate(capacities)],
         # constraints for max time lags
         [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)
-         if active.types[i] != "QC"]
+         if active.types[i] != "QC" and active.d_max[i + 1] is not None]
     )
 
     def get_QC_indices(without=None):
@@ -93,13 +94,15 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
     if network_schedule is not None:
         satisfy(
             [x[i] in set(network_schedule.get_session_start_times(active.ids[i])) for i in get_QC_indices()],
-            [x[i] < x[start] or x[end] < x[i] for (start, end) in get_CS_indices()
+            # order of a qc block is correct
+            [x[i] in set(network_schedule.get_qc_block_start_times(active.qc_indices[i])) for i in get_QC_indices()],
+            [(x[i] < x[start]) | (x[end] < x[i]) for (start, end) in get_CS_indices()
              for i in get_QC_indices(without=[start, end])],
         )
     else:
         satisfy(
             [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)
-             if active.types[i] == "QC"]
+             if active.types[i] == "QC" and active.d_max[i + 1] is not None]
         )
 
     if schedule_type == "NAIVE":
@@ -132,12 +135,11 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
         ns.print()
 
         # name of a node schedule needs to include: n_sessions, dataset, NS ID, schedule type, alice/bob
-        network_schedule_id = None if network_schedule is None else network_schedule.split('_')[3].split('-')[1]
+        network_schedule_id = None if network_schedule is None else network_schedule_name.split('_')[3].split('-')[1]
         name = f"{sum(dataset.values())}-sessions_dataset-{dataset_id if dataset_id is not None else 'unknown'}_" \
                f"NS-{network_schedule_id}_schedule-{schedule_type}_node-{role}"
         if save_schedule:
-            save_schedule_filename = f"../node_schedules/{name}.csv" if save_schedule_filename is None \
-                else save_schedule_filename
+            save_schedule_filename = f"{name}.csv" if save_schedule_filename is None else save_schedule_filename
             ns.save_node_schedule(filename=save_schedule_filename)
 
         if save_metrics:
@@ -147,15 +149,29 @@ def create_node_schedule(dataset, role, network_schedule=None, schedule_type="HE
             ns.save_success_metrics(name=save_metrics_name, filename=save_metrics_filename, role=role,
                                     type=schedule_type, network_schedule=network_schedule, dataset=dataset,
                                     solve_time=end - start)
+        print("\nTime taken to finish: %.4f seconds" % (end - start))
+        clear()
+
+        for filename in os.listdir():
+            if filename.endswith(".log") or filename.endswith(".xml"):
+                os.remove(filename)
+
+        return "SAT"
     elif status() is UNKNOWN:
         print("\n The solver cannot find a solution. The problem is probably too large.")
+        print("\nTime taken to finish: %.4f seconds" % (end - start))
+        clear()
+        return "UNKNOWN"
     elif status() is UNSAT:
         print("\nNo feasible node schedule can be found. "
               "Consider making the length of node schedule longer or finding a better network schedule.")
+        print("\nTime taken to finish: %.4f seconds" % (end - start))
+        clear()
+        return "UNSAT"
     else:
         print("\nSomething else went wrong.")
-    print("\nTime taken to finish: %.4f seconds" % (end - start))
-    clear()
+        print("\nTime taken to finish: %.4f seconds" % (end - start))
+        clear()
 
 
 def get_dataset(dataset_id, n_sessions, n_bqc, n_qkd, n_pp):
@@ -190,7 +206,7 @@ if __name__ == '__main__':
     parser.add_argument('-pp', '--n_pp_sessions', required=False, type=int, default=0,
                         help="Number of PingPong sessions to schedule.")
     # network schedule file
-    parser.add_argument('-ns', '--network_schedule', required=False, type=str, default=None,
+    parser.add_argument('-ns', '--network_schedule_name', required=False, type=str, default=None,
                         help="File with network schedule.")
     # role --> if None, node schedule will be created for both alice and bob
     parser.add_argument('-role', '--role', required=False, type=str, default=None,
@@ -230,7 +246,7 @@ if __name__ == '__main__':
         schedule_type = "HEU"
 
     for r in ["alice", "bob"] if args.role is None else [args.role]:
-        create_node_schedule(dataset=dataset, role=r, network_schedule=args.network_schedule,
+        create_node_schedule(dataset=dataset, role=r, network_schedule_name=args.network_schedule_name,
                              schedule_type=schedule_type, save_schedule=args.save_schedule,
                              save_schedule_filename=args.save_schedule_filename, save_metrics=args.save_metrics,
                              save_metrics_name=args.save_metrics_name, save_metrics_filename=args.save_metrics_filename,
