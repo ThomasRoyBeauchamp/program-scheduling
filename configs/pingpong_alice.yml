@@ -1,5 +1,5 @@
 session_id: TODO
-app_deadline: 1500000
+app_deadline: null
 blocks:
 - b0:
     type: CL
@@ -11,7 +11,7 @@ blocks:
     CS: 1
 - b2:
     type: QC
-    duration: 500000
+    duration: 380000
     CS: 1
 - b3:
     type: QL
@@ -23,7 +23,7 @@ blocks:
     CS: 1
 - b5:
     type: QC
-    duration: 500000
+    duration: 380000
     CS: 1
 - b6:
     type: CC

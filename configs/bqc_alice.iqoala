@@ -10,10 +10,13 @@ META_END
 
 ^b1 {type = QC}:
     run_request(vec<>) : req0
+
 ^b2 {type = QL}:
     vec<p2> = run_subroutine(vec<theta2>) : post_epr_0
+
 ^b3 {type = QC}:
     run_request(vec<>) : req1
+
 ^b4 {type = QL}:
     vec<p1> = run_subroutine(vec<theta1>) : post_epr_1
 
