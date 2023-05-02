@@ -13,27 +13,27 @@ blocks:
     type: QL
     duration: 607000
     CS: 1
-- b2:
-    type: CC
-    duration: 100000
-    CS: 1
 - b3:
     type: CC
     duration: 100000
     CS: 1
 - b4:
+    type: CC
+    duration: 100000
+    CS: 1
+- b5:
     type: QL
     duration: 19000
     CS: 1
-- b5:
+- b6:
     type: QC
     duration: 380000
     CS: 1
-- b6:
+- b7:
     type: QL
     duration: 221000
     CS: 1
-- b7:
+- b8:
     type: CL
     duration: 1000
     CS: null

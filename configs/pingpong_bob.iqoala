@@ -14,22 +14,22 @@ META_END
 ^b2 {type = QL}:
     run_subroutine(vec<>) : move_qubit
 
-^b2 {type = CC}:
+^b3 {type = CC}:
     m1 = recv_cmsg(csocket)
 
-^b3 {type = CC}:
+^b4 {type = CC}:
     m2 = recv_cmsg(csocket)
 
-^b4 {type = QL}:
+^b5 {type = QL}:
     run_subroutine(vec<m1; m2>) : bsm_corrections
 
-^b5 {type = QC}:
+^b6 {type = QC}:
     run_request(vec<>) : req0
 
-^b6 {type = QL}:
+^b7 {type = QL}:
     vec<p1; p2> = run_subroutine(vec<>) : bsm
 
-^b7 {type = CL}:
+^b8 {type = CL}:
     send_cmsg(csocket, p1)
     send_cmsg(csocket, p2)
 
