@@ -12,7 +12,8 @@ from session_metadata import SessionMetadata
 class NetworkSchedule:
     QC_LENGTH = 380_000  # QC duration constant set by Qoala
 
-    def __init__(self, dataset_id, n_sessions, sessions=None, start_times=None, filename=None, save=False, seed=None):
+    def __init__(self, dataset_id, n_sessions, sessions=None, start_times=None, filename=None, save=False, seed=None,
+                 length_factor=3):
         """
         Network schedule class. Dataset ID and total number of sessions must be given. If sessions and start_times
         are not define, a network schedule will be randomly generated. Filename for saving the network schedule
@@ -27,7 +28,7 @@ class NetworkSchedule:
         self.dataset_id = dataset_id
         self.n_sessions = n_sessions
         self.dataset = datasets.create_dataset(id=dataset_id, n_sessions=n_sessions)
-        self.length = NetworkSchedule._calculate_length(self.dataset)
+        self.length = NetworkSchedule._calculate_length(self.dataset, length_factor=length_factor)
         self.id = None
 
         if start_times is None and sessions is None:
@@ -220,7 +221,7 @@ class NetworkSchedule:
         return p
 
     @staticmethod
-    def _calculate_length(dataset):
+    def _calculate_length(dataset, length_factor=3):
         """
         A method calculating the total length of a network schedule. This depends on the session types and number
         of sessions being scheduled. For a session between Alice and Bob, we consider the total length of a program
@@ -236,7 +237,7 @@ class NetworkSchedule:
             total_bob = sum([b.duration for b in SessionMetadata(k + "_bob.yml", session_id=1).blocks])
             length += (max(total_alice, total_bob) * v)
         # TODO: how to decide on the factor
-        return int(length) * 4
+        return int(length) * length_factor
 
     def rewrite_sessions(self, dataset):
         # TODO: make this prettier
@@ -306,9 +307,12 @@ if __name__ == '__main__':
     parser.add_argument('-ssf', '--save_schedule_filename', required=False, type=str, default=None,
                         help="Filename for saving the schedule.")
     # seed
-    parser.add_argument('-seed', '--seed', required=False, type=int, default=42,
+    parser.add_argument('-seed', '--seed', required=False, type=int, default=None,
+                        help="Seed for randomly generating the network schedule.")
+    # length factor
+    parser.add_argument('-l', '--length_factor', required=False, type=int, default=3,
                         help="Seed for randomly generating the network schedule.")
     args, unknown = parser.parse_known_args()
 
     NetworkSchedule(dataset_id=args.dataset_id, n_sessions=args.n_sessions, save=args.save,
-                    filename=args.save_schedule_filename, seed=args.seed)
+                    filename=args.save_schedule_filename, seed=args.seed, length_factor=args.length_factor)
