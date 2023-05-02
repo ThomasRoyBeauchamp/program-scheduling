@@ -143,7 +143,7 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
     alice_procnode.initialize_processes()
     alice_tasks = alice_procnode.scheduler.get_tasks_to_schedule()
 
-    alice_schedule = create_task_schedule(alice_tasks, node_schedule_name + "-alice.csv")
+    alice_schedule = create_task_schedule(alice_tasks, "node_schedules/" + node_schedule_name + "-alice.csv")
     print(f"\nAlice's schedule:\n{alice_schedule}")
     alice_procnode.scheduler.upload_schedule(alice_schedule)
 
@@ -171,7 +171,7 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
     bob_procnode.initialize_processes()
     bob_tasks = bob_procnode.scheduler.get_tasks_to_schedule()
 
-    bob_schedule = create_task_schedule(bob_tasks, node_schedule_name + "-bob.csv")
+    bob_schedule = create_task_schedule(bob_tasks, "node_schedules/" + node_schedule_name + "-bob.csv")
     print(f"\nBob's schedule:\n{bob_schedule}")
     bob_procnode.scheduler.upload_schedule(bob_schedule)
 
@@ -201,6 +201,7 @@ def evaluate_node_schedule(node_schedule_name):
     dataset = create_dataset(id=dataset_id, n_sessions=n_sessions)
 
     result = execute_node_schedule(dataset, node_schedule_name)
+    return result
 
     # # you need to somehow zip the sessions that were run
     # if session_type == "BQC":
@@ -243,5 +244,10 @@ def evaluate_node_schedule(node_schedule_name):
 
 if __name__ == "__main__":
     start = time.time()
+
+    # res = evaluate_node_schedule("6-sessions_dataset-0_NS-128_schedule-HEU_node")
+    # res = evaluate_node_schedule("6-sessions_dataset-1_NS-169_schedule-HEU_node")
+    res = evaluate_node_schedule("6-sessions_dataset-2_NS-0_schedule-HEU_node")
+
     end = time.time()
     print(end - start)
