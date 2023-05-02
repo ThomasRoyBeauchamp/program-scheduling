@@ -13,6 +13,7 @@ class ActivityMetadata:
 
         self.n_blocks = len(session_metadata.blocks)
         self.block_names = [b.name for b in session_metadata.blocks]
+        self.cs_ids = [b.CS for b in session_metadata.blocks]
         self.types = [b.type for b in session_metadata.blocks]
 
         self.successors = [[i + 1] for i in range(self.n_blocks - 1)]
@@ -94,6 +95,7 @@ class ActiveSet:
         self.block_names = []
         self.gcd = None
         self.qc_indices = []
+        self.cs_ids = []
 
     # TODO: something like this is needed for the test but do it in a pythonic way (kwargs)
     # def __init__(self, n_blocks, ids, succ, reqs, types, durations, d_min, d_max, block_names, gcd):
@@ -136,6 +138,7 @@ class ActiveSet:
         self.durations += other.durations
         self.d_max += other.d_max
         self.qc_indices += other.qc_indices
+        self.cs_ids += other.cs_ids
 
     def scale_down(self):
         self.gcd = reduce(gcd, self.durations)
