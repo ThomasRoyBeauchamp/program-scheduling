@@ -1,7 +1,8 @@
 # from __future__ import annotations
-
+import logging
 import os
 import time
+from argparse import ArgumentParser
 from dataclasses import dataclass
 from typing import Dict, List
 
@@ -144,7 +145,7 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
     alice_tasks = alice_procnode.scheduler.get_tasks_to_schedule()
 
     alice_schedule = create_task_schedule(alice_tasks, "node_schedules/" + node_schedule_name + "-alice.csv")
-    # print(f"\nAlice's schedule:\n{alice_schedule}")
+    logging.debug(f"\nAlice's schedule:\n{alice_schedule}")
     alice_procnode.scheduler.upload_schedule(alice_schedule)
 
     for (path, num_iterations) in dataset.items():
@@ -172,7 +173,7 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
     bob_tasks = bob_procnode.scheduler.get_tasks_to_schedule()
 
     bob_schedule = create_task_schedule(bob_tasks, "node_schedules/" + node_schedule_name + "-bob.csv")
-    # print(f"\nBob's schedule:\n{bob_schedule}")
+    logging.debug(f"\nBob's schedule:\n{bob_schedule}")
     bob_procnode.scheduler.upload_schedule(bob_schedule)
 
     network.start()
@@ -274,6 +275,17 @@ def evaluate_node_schedule(node_schedule_name, save=True):
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    # logging
+    parser.add_argument('--log', dest='loglevel', type=str, required=False, default="INFO",
+                        help="Set log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
+    args, unknown = parser.parse_known_args()
+
+    numeric_level = getattr(logging, args.loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % args.loglevel)
+    logging.basicConfig(level=numeric_level, format="%(levelname)s: %(message)s")
+
     start = time.time()
 
     # res = evaluate_node_schedule("6-sessions_dataset-0_NS-128_schedule-HEU_node")
@@ -283,4 +295,4 @@ if __name__ == "__main__":
     res = evaluate_node_schedule("6-sessions_dataset-4_NS-339_schedule-HEU_node")
 
     end = time.time()
-    print(end - start)
+    logging.info("Time taken to finish: %.4f seconds" % (end - start))

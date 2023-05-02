@@ -1,3 +1,4 @@
+import logging
 import time
 from argparse import ArgumentParser
 from copy import deepcopy
@@ -17,8 +18,15 @@ if __name__ == '__main__':
                         help="Run all datasets.")
     parser.add_argument("-n", '--n_ns', required=False, default=10, type=int,
                         help="How many networks schedules should be created.")
-
+    # logging
+    parser.add_argument('--log', dest='loglevel', type=str, required=False, default="INFO",
+                        help="Set log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
     args, unknown = parser.parse_known_args()
+
+    numeric_level = getattr(logging, args.loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % args.loglevel)
+    logging.basicConfig(level=numeric_level, format="%(levelname)s: %(message)s")
 
     # args.dataset_id = 3
     # args.n_ns = 1
@@ -38,18 +46,17 @@ if __name__ == '__main__':
             ns_ids.append(ns.id)
             last_id = ns.id
 
-
             dataset = create_dataset(id=d, n_sessions=args.n_sessions)
             alice_res = create_node_schedule(dataset, "alice", network_schedule=ns, dataset_id=args.dataset_id)
             bob_res = create_node_schedule(dataset, "bob", network_schedule=ns2, dataset_id=args.dataset_id)
             if alice_res == "SAT" and bob_res == "SAT":
                 correct_node_schedules.append(ns.id)
 
-        # print(ns_ids)
-        print(f"Dataset {d}: {args.n_ns} network schedules up to ID {ns_ids[-1]} ({round(args.n_ns/ns_ids[-1],4) * 100}%, ids: {ns_ids}). "
-        # print(f"Dataset {d}: {args.n_ns} network schedules up to ID {ns.id} ({round(args.n_ns/ns.id,4) * 100}%). "
-              f"Out of that, {len(correct_node_schedules)} network schedules resulted in feasible node schedules "
-              f"({round(len(correct_node_schedules)/args.n_ns, 2) * 100}% success, ids: {correct_node_schedules}).")
+        logging.debug(f"Dataset {d}: {args.n_ns} network schedules up to ID {ns_ids[-1]} "
+                      f"({round(args.n_ns/ns_ids[-1],4) * 100 if ns_ids[-1] != 0 else 100}%, ids: {ns_ids}). "
+                      f"Out of that, {len(correct_node_schedules)} network schedules resulted in "
+                      f"feasible node schedules ({round(len(correct_node_schedules)/args.n_ns, 2) * 100}% success, "
+                      f"ids: {correct_node_schedules}).")
 
     end = time.time()
-    print("Time taken to finish: %.4f seconds" % (end - start))
+    logging.info("Time taken to finish: %.4f seconds" % (end - start))

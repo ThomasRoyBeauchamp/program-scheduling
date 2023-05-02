@@ -1,3 +1,4 @@
+import logging
 import os
 from argparse import ArgumentParser
 from itertools import chain
@@ -151,7 +152,6 @@ class NetworkSchedule:
             if session == "qkd":
                 if start_time + self.QC_LENGTH in [t for (t, _) in suggested_ns]:
                     return False
-            # TODO: make sure nothing is after QKD session as well
 
         # check for setup time (pingpong)
         for (start_time, session) in suggested_ns:
@@ -177,19 +177,19 @@ class NetworkSchedule:
 
         while not self.feasible_network_schedule(suggested_ns):
             if seed % 100 == 0:
-                print("Trying out seed", seed)
+                logging.debug("Trying out seed", seed)
             seed += 1
             suggested_ns = self._pick_timeslots(timeslots_to_pick_from, seed)
 
         ns_timeslots = self._add_cs_timeslots(suggested_ns)
         self.id = seed
-        print(f"Generated network schedule with seed={seed}:")
+        logging.info(f"Generated network schedule with seed={seed}")
         for i, timeslot in enumerate(ns_timeslots):
             if i == 0:
-                print(f"{timeslot}")
+                logging.debug(f"\t{timeslot}")
             else:
-                print(f"{timeslot} with sep {(timeslot[0] - ns_timeslots[i - 1][0])/self.QC_LENGTH - 1} "
-                      f"timeslots since the end of the execution of the previous")
+                logging.debug(f"\t{timeslot} with sep {(timeslot[0] - ns_timeslots[i - 1][0])/self.QC_LENGTH - 1} "
+                             f"timeslots since the end of the execution of the previous")
         self.start_times = [start_time for (start_time, _) in ns_timeslots]
         self.sessions = [session for (_, session) in ns_timeslots]
 
@@ -312,7 +312,15 @@ if __name__ == '__main__':
     # length factor
     parser.add_argument('-l', '--length_factor', required=False, type=int, default=3,
                         help="Seed for randomly generating the network schedule.")
+    # logging
+    parser.add_argument('--log', dest='loglevel', type=str, required=False, default="INFO",
+                        help="Set log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
     args, unknown = parser.parse_known_args()
+
+    numeric_level = getattr(logging, args.loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % args.loglevel)
+    logging.basicConfig(level=numeric_level, format="%(levelname)s: %(message)s")
 
     NetworkSchedule(dataset_id=args.dataset_id, n_sessions=args.n_sessions, save=args.save,
                     filename=args.save_schedule_filename, seed=args.seed, length_factor=args.length_factor)

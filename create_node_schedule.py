@@ -1,3 +1,4 @@
+import logging
 import time
 from argparse import ArgumentParser
 import numpy as np
@@ -49,7 +50,7 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
         network_schedule.rewrite_sessions(dataset)
         network_schedule.start_times = np.divide(network_schedule.start_times, active.gcd)
         network_schedule.start_times = list(map(lambda x: int(x), network_schedule.start_times))
-        print(f"Network schedule length {network_schedule.length}")
+        logging.debug(f"Network schedule length={network_schedule.length}")
         network_schedule.length = network_schedule.length / active.gcd
 
     # TODO: how to decide on the extra length?
@@ -130,7 +131,6 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
     # here you can possibly define other heuristics to use
     heuristics = {}
 
-    print(f"\nTrying to construct a node schedule of length {schedule_size} ({schedule_size * active.gcd})")
     start = time.time()
     result = ace.solve(instance, dict_options=heuristics)
     end = time.time()
@@ -139,7 +139,7 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
         active.scale_up()
         start_times = [s * active.gcd for s in solution().values]
         ns = NodeSchedule(active, start_times)
-        ns.print()
+        # TODO: print ns if debugging?
 
         # name of a node schedule needs to include: n_sessions, dataset, NS ID, schedule type, alice/bob
         network_schedule_id = None if network_schedule is None else network_schedule_name.split(".")[0].split("-")[-1]
@@ -157,8 +157,8 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
             ns.save_success_metrics(name=save_metrics_name, filename=save_metrics_filename, role=role,
                                     type=schedule_type, network_schedule=network_schedule, dataset=dataset,
                                     solve_time=end - start)
-        print("Found node schedule successfully.")
-        print("Time taken to finish: %.4f seconds" % (end - start))
+        logging.info("Found node schedule successfully.")
+        logging.info("Time taken to finish: %.4f seconds" % (end - start))
         clear()
 
         for filename in os.listdir():
@@ -167,19 +167,19 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
 
         return "SAT"
     elif status() is UNKNOWN:
-        print("\nThe solver cannot find a solution. The problem is probably too large.")
-        print("Time taken to finish: %.4f seconds" % (end - start))
+        logging.info("\nThe solver cannot find a solution. The problem is probably too large.")
+        logging.info("Time taken to finish: %.4f seconds" % (end - start))
         clear()
         return "UNKNOWN"
     elif status() is UNSAT:
-        print("\nNo feasible node schedule can be found. "
-              "Consider making the length of node schedule longer or finding a better network schedule.")
-        print("Time taken to finish: %.4f seconds" % (end - start))
+        logging.info("\nNo feasible node schedule can be found. "
+                     "Consider making the length of node schedule longer or finding a better network schedule.")
+        logging.info("Time taken to finish: %.4f seconds" % (end - start))
         clear()
         return "UNSAT"
     else:
-        print("\nSomething else went wrong.")
-        print("Time taken to finish: %.4f seconds" % (end - start))
+        logging.info("\nSomething else went wrong.")
+        logging.info("Time taken to finish: %.4f seconds" % (end - start))
         clear()
 
 
@@ -241,8 +241,15 @@ if __name__ == '__main__':
     # filename for saving metrics
     parser.add_argument('-smf', '--save_metrics_filename', required=False, type=str, default=None,
                         help="Filename for saving the schedule success metrics.")
-
+    # logging
+    parser.add_argument('--log', dest='loglevel', type=str, required=False, default="INFO",
+                        help="Set log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
     args, unknown = parser.parse_known_args()
+
+    numeric_level = getattr(logging, args.loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % args.loglevel)
+    logging.basicConfig(level=numeric_level, format="%(levelname)s: %(message)s")
 
     dataset = get_dataset(args.dataset, args.n_sessions,
                           args.n_bqc_sessions, args.n_qkd_sessions, args.n_pp_sessions)
