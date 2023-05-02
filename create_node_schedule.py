@@ -49,10 +49,11 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
         network_schedule.rewrite_sessions(dataset)
         network_schedule.start_times = np.divide(network_schedule.start_times, active.gcd)
         network_schedule.start_times = list(map(lambda x: int(x), network_schedule.start_times))
+        print(f"Network schedule length {network_schedule.length}")
         network_schedule.length = network_schedule.length / active.gcd
 
     # TODO: how to decide on the extra length?
-    schedule_size = int(network_schedule.length) + 20000 if network_schedule is not None else 2 * int(sum(active.durations))
+    schedule_size = int(network_schedule.length) + 100000 if network_schedule is not None else 2 * int(sum(active.durations))
     capacities = [1, 1]  # capacity of [CPU, QPU]
 
     # x[i] is the starting time of the ith job
@@ -65,6 +66,19 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
                                           for i in range(active.n_blocks) if active.resource_reqs[i][k] > 0])
         return Cumulative(origins=origins, lengths=lengths, heights=heights)
 
+    def get_CS_indices():
+        forward = list(zip(active.ids, active.cs_ids))
+        backwards = list(zip(active.ids, active.cs_ids))
+        backwards.reverse()
+
+        CS_indices = []
+        for (session_id, cs_id) in set(zip(active.ids, active.cs_ids)):
+            if cs_id is not None:
+                CS_indices.append((session_id, cs_id, forward.index((session_id, cs_id)),
+                                  len(forward) - backwards.index((session_id, cs_id)) - 1))
+
+        return CS_indices
+
     # constraints
     satisfy(
         # precedence constraints
@@ -73,7 +87,10 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
         [cumulative_for(k) <= capacity for k, capacity in enumerate(capacities)],
         # constraints for max time lags
         [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)
-         if active.types[i] != "QC" and active.d_max[i + 1] is not None]
+         if (active.types[i + 1] != "QC" or active.d_max[i] is None) and active.d_max[i + 1] is not None],
+        # TODO: make a constraint that nothing is scheduled inbetween the first and last Q block in a critical section
+        [(x[i] < x[start]) | (x[end] < x[i]) for (session_id, cs_id, start, end) in get_CS_indices()
+         for i in range(active.n_blocks - 1) if (active.ids[i] != session_id and active.cs_ids[i] != cs_id)]
     )
 
     def get_QC_indices(without=None):
@@ -83,26 +100,16 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
                 indices.remove(remove)
         return indices
 
-    def get_CS_indices():
-        indices = []
-        for i, j in enumerate(get_QC_indices()):
-            if active.d_max[j] == 0:
-                # appending (id of prev QC block, id of QC block in critical section)
-                indices.append((get_QC_indices()[i - 1], j))
-        return indices
-
     if network_schedule is not None:
         satisfy(
             [x[i] in set(network_schedule.get_session_start_times(active.ids[i])) for i in get_QC_indices()],
             # order of a qc block is correct
-            [x[i] in set(network_schedule.get_qc_block_start_times(active.qc_indices[i])) for i in get_QC_indices()],
-            [(x[i] < x[start]) | (x[end] < x[i]) for (start, end) in get_CS_indices()
-             for i in get_QC_indices(without=[start, end])],
+            [x[i] in set(network_schedule.get_qc_block_start_times(active.qc_indices[i])) for i in get_QC_indices()]
         )
     else:
         satisfy(
             [(x[i + 1] - (x[i] + active.durations[i])) <= active.d_max[i + 1] for i in range(active.n_blocks - 1)
-             if active.types[i] == "QC" and active.d_max[i + 1] is not None]
+             if active.types[i + 1] == "QC" and active.d_max[i + 1] is not None]
         )
 
     if schedule_type == "NAIVE":
@@ -135,11 +142,12 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
         ns.print()
 
         # name of a node schedule needs to include: n_sessions, dataset, NS ID, schedule type, alice/bob
-        network_schedule_id = None if network_schedule is None else network_schedule_name.split('_')[3].split('-')[1]
+        network_schedule_id = None if network_schedule is None else network_schedule_name.split(".")[0].split("-")[-1]
         name = f"{sum(dataset.values())}-sessions_dataset-{dataset_id if dataset_id is not None else 'unknown'}_" \
                f"NS-{network_schedule_id}_schedule-{schedule_type}_node-{role}"
         if save_schedule:
-            save_schedule_filename = f"{name}.csv" if save_schedule_filename is None else save_schedule_filename
+            save_schedule_filename = f"{name}.csv" if save_schedule_filename is None \
+                else f"{save_schedule_filename}-{role}.csv"
             ns.save_node_schedule(filename=save_schedule_filename)
 
         if save_metrics:
@@ -149,7 +157,8 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
             ns.save_success_metrics(name=save_metrics_name, filename=save_metrics_filename, role=role,
                                     type=schedule_type, network_schedule=network_schedule, dataset=dataset,
                                     solve_time=end - start)
-        print("\nTime taken to finish: %.4f seconds" % (end - start))
+        print("Found node schedule successfully.")
+        print("Time taken to finish: %.4f seconds" % (end - start))
         clear()
 
         for filename in os.listdir():
@@ -158,19 +167,19 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
 
         return "SAT"
     elif status() is UNKNOWN:
-        print("\n The solver cannot find a solution. The problem is probably too large.")
-        print("\nTime taken to finish: %.4f seconds" % (end - start))
+        print("\nThe solver cannot find a solution. The problem is probably too large.")
+        print("Time taken to finish: %.4f seconds" % (end - start))
         clear()
         return "UNKNOWN"
     elif status() is UNSAT:
         print("\nNo feasible node schedule can be found. "
               "Consider making the length of node schedule longer or finding a better network schedule.")
-        print("\nTime taken to finish: %.4f seconds" % (end - start))
+        print("Time taken to finish: %.4f seconds" % (end - start))
         clear()
         return "UNSAT"
     else:
         print("\nSomething else went wrong.")
-        print("\nTime taken to finish: %.4f seconds" % (end - start))
+        print("Time taken to finish: %.4f seconds" % (end - start))
         clear()
 
 

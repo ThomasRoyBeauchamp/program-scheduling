@@ -10,10 +10,9 @@ from session_metadata import SessionMetadata
 
 
 class NetworkSchedule:
-
     QC_LENGTH = 380_000  # QC duration constant set by Qoala
 
-    def __init__(self, dataset_id, n_sessions, sessions=None, start_times=None, filename=None, save=False, seed=42):
+    def __init__(self, dataset_id, n_sessions, sessions=None, start_times=None, filename=None, save=False, seed=None):
         """
         Network schedule class. Dataset ID and total number of sessions must be given. If sessions and start_times
         are not define, a network schedule will be randomly generated. Filename for saving the network schedule
@@ -43,6 +42,7 @@ class NetworkSchedule:
                 self.generate_random_network_schedule(seed=self.id)
                 self.save_network_schedule(filename=filename)
             else:
+                assert seed is not None
                 self.id = seed
                 self.generate_random_network_schedule(seed=self.id)
         else:
@@ -63,6 +63,105 @@ class NetworkSchedule:
                                 "start_time": self.start_times})
         df.to_csv(f"{path}/{filename}_id-{self.id}.csv", index=False)
 
+    def _get_all_timeslots(self, seed):
+        # to make sure no scheduled timeslot is longer than the actual network schedule
+        np.random.seed(seed)
+        all_timeslots = list(range(500, self.length - self.QC_LENGTH, self.QC_LENGTH))
+
+        assigned_timeslots = []
+
+        p = self._calculate_probabilities()
+
+        if "qkd" in p.keys():
+            parity = np.random.choice([0, 1])
+            qkd_timeslots = [j for i, j in enumerate(all_timeslots) if i % 2 == parity]
+            for qkd_timeslot in qkd_timeslots:
+                assigned_timeslots.append((qkd_timeslot, "qkd"))
+                all_timeslots.remove(qkd_timeslot)
+            # remaining sessions (if any) will be scheduled in the remaining timeslots
+            p.pop("qkd")
+
+        # fill up the rest of the timeslots by the other
+        if len(p.keys()) > 0:
+            for start_time in all_timeslots:
+                choices = list(p.keys())
+                probabilities = list(p.values())
+                session = np.random.choice(choices, p=probabilities)
+                assigned_timeslots.append((start_time, session))
+
+        return assigned_timeslots
+
+    def _pick_timeslots(self, timeslots, seed):
+        np.random.seed(seed)
+
+        n_critical_sections = {k.split("/")[-1]:
+                               len(set([b.CS for b in SessionMetadata(k + "_alice.yml", session_id=1).blocks
+                                        if b.type == "QC"]))
+                               for (k, v) in self.dataset.items()}
+
+        picked_timeslots = []
+        for (k, v) in self.dataset.items():
+            session = k.split("/")[-1]
+            indices = [i for i, timeslot in enumerate(timeslots) if timeslot[1] == session]
+            required_cs = n_critical_sections[session] * v
+            picked_indices = np.random.choice(indices, required_cs, replace=False)
+            picked_timeslots += [timeslots[i] for i in picked_indices]
+
+        return picked_timeslots
+
+    def _add_cs_timeslots(self, suggested_ns):
+        added = []
+        for (start_time, session) in suggested_ns:
+            if session == "bqc":
+                # bqc needs to have 2 timeslots inbetween
+                t = 3 * self.QC_LENGTH
+                added.append((start_time + t, session))
+            if session == "pingpong":
+                # pingpong needs to have 3 timeslots inbetween
+                t = 4 * self.QC_LENGTH
+                added.append((start_time + t, session))
+
+        ns = suggested_ns + added
+        ns.sort()
+        return ns
+
+    def feasible_network_schedule(self, suggested_ns):
+        # check for length
+        for (start_time, _) in suggested_ns:
+            if start_time > (self.length - self.QC_LENGTH):
+                return False
+
+        # check for crit sections
+        for (start_time, session) in suggested_ns:
+            if session == "bqc":
+                new_start_time = start_time + 3 * self.QC_LENGTH
+                if new_start_time > (self.length - self.QC_LENGTH):
+                    return False
+                for blocked in range(start_time + self.QC_LENGTH, new_start_time + 1 + 3 * self.QC_LENGTH, self.QC_LENGTH):
+                    if blocked in [t for (t, _) in suggested_ns]:
+                        return False
+            if session == "pingpong":
+                new_start_time = start_time + 4 * self.QC_LENGTH
+                if new_start_time > (self.length - self.QC_LENGTH):
+                    return False
+                for blocked in range(start_time + self.QC_LENGTH, new_start_time + 1 + 2 * self.QC_LENGTH, self.QC_LENGTH):
+                    if blocked in [t for (t, _) in suggested_ns]:
+                        return False
+            if session == "qkd":
+                if start_time + self.QC_LENGTH in [t for (t, _) in suggested_ns]:
+                    return False
+            # TODO: make sure nothing is after QKD session as well
+
+        # check for setup time (pingpong)
+        for (start_time, session) in suggested_ns:
+            if session == "pingpong":
+                if start_time < 20000:
+                    return False
+                if start_time - self.QC_LENGTH in [t for (t, _) in suggested_ns]:
+                    return False
+
+        return True
+
     def generate_random_network_schedule(self, seed):
         """
         A method for generating a random network schedule. Depends on the probabilities that a session should be
@@ -72,82 +171,26 @@ class NetworkSchedule:
         :param seed: Seed for `numpy.random`
         :return:
         """
-        np.random.seed(seed)
+        timeslots_to_pick_from = self._get_all_timeslots(seed)
+        suggested_ns = self._pick_timeslots(timeslots_to_pick_from, seed)
 
-        p = self._calculate_probabilities()
-        self.sessions = []
-        self.start_times = []
+        while not self.feasible_network_schedule(suggested_ns):
+            if seed % 100 == 0:
+                print("Trying out seed", seed)
+            seed += 1
+            suggested_ns = self._pick_timeslots(timeslots_to_pick_from, seed)
 
-        cs = {k.split("/")[-1]:
-                  len(set([b.CS for b in SessionMetadata(k + "_alice.yml", session_id=1).blocks if b.type == "QC"]))
-              for (k, v) in self.dataset.items()}
-
-        print(set([b.CS for b in SessionMetadata("configs/qkd_alice.yml", session_id=1).blocks if b.type == "QC"]))
-        print("critical sections ", cs)
-
-        min_sep = {  # TODO: maybe at some point this could be read out from the yml config?
-            "bqc": 607000,  # note that bob has 0, it's max of the min sep
-            "pingpong": 807000,
-            "qkd": 15000,
-        }
-
-        # assign all timeslots
-        for start_time in range(500, self.length - self.QC_LENGTH, self.QC_LENGTH):
-            choices = list(p.keys())
-            probabilities = list(p.values())
-            session = np.random.choice(choices, p=probabilities)
-            self.sessions.append(session)
-            self.start_times.append(start_time)
-
-        # pick a subset
-        start = True
-        conflicts = False
-        # check for constraints. if they don't work, pick a different subset. how to do this with seeds?
-        while conflicts or start:
-            start = False
-            conflicts = False
-            picked_timeslots = {}
-            for (k, v) in self.dataset.items():
-                session = k.split("/")[-1]
-                indices = [i for i in range(len(self.sessions)) if self.sessions[i] == session]
-                required_cs = cs[session] * v
-                picked_timeslots.update({session: list(np.random.choice(indices, required_cs, replace=False))})
-
-            if "qkd" in picked_timeslots.keys():
-                for i in picked_timeslots["qkd"]:
-                    if i - 1 in picked_timeslots["qkd"]:
-                        conflicts = True
-                        self.id += 1
-                        np.random.seed(self.id)
-                        # todo: can you `pass` here
-
-            # assign remaining QC blocks
-            picked_start_times = []
-            picked_sessions = []
-            for (k, l) in picked_timeslots.items():
-                for i in l:
-                    picked_start_times.append(self.start_times[i])
-                    picked_sessions.append(k)
-
-            # adding the other QC block in the critical section
-            for (k, l) in picked_timeslots.items():
-                for i in l:
-                    if k == "bqc" or k == "pingpong":
-                        new_start_time = self.start_times[i] + self.QC_LENGTH + (0 if min_sep[k] == 0
-                                                                                 else (int(min_sep[k] / self.QC_LENGTH) + 1) * self.QC_LENGTH)
-                        # TODO: also check that you're not putting it after the end of the network schedule
-                        for overlapping in range(self.start_times[i] + self.QC_LENGTH, new_start_time + 1, self.QC_LENGTH):
-                            if overlapping in picked_start_times:
-                                conflicts = True
-                                self.id += 1
-                                np.random.seed(self.id)
-                        picked_start_times.append(new_start_time)
-                        picked_sessions.append(k)
-
-        zipped = list(zip(picked_start_times, picked_sessions))
-        zipped.sort()
-        self.start_times = [s for (s, _) in zipped]
-        self.sessions = [s for (_, s) in zipped]
+        ns_timeslots = self._add_cs_timeslots(suggested_ns)
+        self.id = seed
+        print(f"Generated network schedule with seed={seed}:")
+        for i, timeslot in enumerate(ns_timeslots):
+            if i == 0:
+                print(f"{timeslot}")
+            else:
+                print(f"{timeslot} with sep {(timeslot[0] - ns_timeslots[i - 1][0])/self.QC_LENGTH - 1} "
+                      f"timeslots since the end of the execution of the previous")
+        self.start_times = [start_time for (start_time, _) in ns_timeslots]
+        self.sessions = [session for (_, session) in ns_timeslots]
 
     def _calculate_probabilities(self):
         """
@@ -156,18 +199,24 @@ class NetworkSchedule:
 
         :return:
         """
-        number_of_blocks = {}
+        number_of_blocks_wo_qkd = {}
         for k, v in self.dataset.items():
-            # calculate number of blocks for session k
-            n_blocks = sum([1 for b in SessionMetadata(k + "_alice.yml", session_id=1).blocks if b.type == "QC"]) * v
-            # assign to dictionary
-            number_of_blocks[k.split("/")[-1]] = n_blocks
+            if k.split("/")[-1] != "qkd":
+                # calculate number of blocks for session k
+                n_blocks = sum(
+                    [1 for b in SessionMetadata(k + "_alice.yml", session_id=1).blocks if b.type == "QC"]) * v
+                # assign to dictionary
+                number_of_blocks_wo_qkd[k.split("/")[-1]] = n_blocks
 
         p = {}
         for k, v in self.dataset.items():
             session = k.split("/")[-1]
-            probability = (number_of_blocks[session] / sum(number_of_blocks.values()))
-            p.update({session: probability})
+            if session != "qkd":
+                probability = (number_of_blocks_wo_qkd[session] / sum(number_of_blocks_wo_qkd.values()))
+                p.update({session: probability})
+            elif session == "qkd":
+                p.update({session: 1.0})
+
         return p
 
     @staticmethod
@@ -186,8 +235,8 @@ class NetworkSchedule:
             total_alice = sum([b.duration for b in SessionMetadata(k + "_alice.yml", session_id=1).blocks])
             total_bob = sum([b.duration for b in SessionMetadata(k + "_bob.yml", session_id=1).blocks])
             length += (max(total_alice, total_bob) * v)
-        print("Total length for dataset is ", length)
-        return int(length) * 2
+        # TODO: how to decide on the factor
+        return int(length) * 4
 
     def rewrite_sessions(self, dataset):
         # TODO: make this prettier
@@ -211,7 +260,7 @@ class NetworkSchedule:
                 ))) * 10})
             else:
                 new_d.update({session: list(chain(*zip(
-                    zip(ids, [0] * len(ids)), # first QC blocks
+                    zip(ids, [0] * len(ids)),  # first QC blocks
                     zip(ids, [1] * len(ids))  # second QC blocks
                 ))) * 10})
 
