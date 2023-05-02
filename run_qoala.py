@@ -144,7 +144,7 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
     alice_tasks = alice_procnode.scheduler.get_tasks_to_schedule()
 
     alice_schedule = create_task_schedule(alice_tasks, "node_schedules/" + node_schedule_name + "-alice.csv")
-    print(f"\nAlice's schedule:\n{alice_schedule}")
+    # print(f"\nAlice's schedule:\n{alice_schedule}")
     alice_procnode.scheduler.upload_schedule(alice_schedule)
 
     for (path, num_iterations) in dataset.items():
@@ -172,7 +172,7 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
     bob_tasks = bob_procnode.scheduler.get_tasks_to_schedule()
 
     bob_schedule = create_task_schedule(bob_tasks, "node_schedules/" + node_schedule_name + "-bob.csv")
-    print(f"\nBob's schedule:\n{bob_schedule}")
+    # print(f"\nBob's schedule:\n{bob_schedule}")
     bob_procnode.scheduler.upload_schedule(bob_schedule)
 
     network.start()
@@ -193,7 +193,21 @@ class NodeScheduleResult:
     makespan: float
 
 
-def evaluate_node_schedule(node_schedule_name):
+def save_success_metrics(node_schedule_name, success_metrics):
+    # filename = None
+    # # TODO: add NS id to this
+    # df = pd.DataFrame(success_metrics)
+    #
+    # if os.path.isfile(filename):  # if the file exists, append
+    #     old_df = pd.read_csv(filename)
+    #     new_df = pd.concat([old_df, df], ignore_index=True)
+    #     new_df.to_csv(filename, index=False)
+    # else:  # otherwise make new file
+    #     df.to_csv(filename, index=False)
+    pass
+
+
+def evaluate_node_schedule(node_schedule_name, save=True):
     # node_schedule_name is `6-sessions_dataset-1_NS-1_schedule-HEU_node`
     parts = node_schedule_name.split("_")
     dataset_id = int(parts[1].split("-")[1])
@@ -201,45 +215,62 @@ def evaluate_node_schedule(node_schedule_name):
     dataset = create_dataset(id=dataset_id, n_sessions=n_sessions)
 
     result = execute_node_schedule(dataset, node_schedule_name)
-    return result
 
-    # # you need to somehow zip the sessions that were run
-    # if session_type == "BQC":
-    #     # Effective computation: measure in Z the following state:
-    #     # H Rz(beta) H Rz(alpha) |+>
-    #     # m2 should be this outcome
-    #
-    #     # angles are in multiples of pi/16
-    #     # check(alpha=8, beta=8, theta1=0, theta2=0, expected=0, num_iterations=12)
-    #     bob_batch_results = bqc_result.bob_results
-    #     for _, batch_results in bob_batch_results.items():
-    #         program_results = batch_results.results
-    #         m2s = [result.values["m2"] for result in program_results]
-    #         assert all(m2 == expected for m2 in m2s)
-    # elif session_type == "pingpong":
-    #     alice_batch_results = result.alice_results
-    #     for _, batch_results in alice_batch_results.items():
-    #         program_results = batch_results.results
-    #         outcomes = [result.values["outcome"] for result in program_results]
-    #         assert all(outcome == 1 for outcome in outcomes)
-    #     q0 = result.alice_procnode.qdevice.get_local_qubit(0)
-    #     assert has_state(q0, ketstates.s1, margin=1 - fidelity_threshold)
-    # elif session_type == "qkd":
-    #     qkd_result = run_qkd(num_iterations, alice_file, bob_file)
-    #     alice_results = qkd_result.alice_results.results
-    #     bob_results = qkd_result.bob_results.results
-    #
-    #     print(alice_results)
-    #     print(bob_results)
-    #
-    #     assert len(alice_results) == num_iterations
-    #     assert len(bob_results) == num_iterations
-    #
-    #     alice_outcomes = [alice_results[i].values for i in range(num_iterations)]
-    #     bob_outcomes = [bob_results[i].values for i in range(num_iterations)]
-    #
-    #     for alice, bob in zip(alice_outcomes, bob_outcomes):
-    #         assert alice["m0"] == bob["m0"]
+    successful_sessions = {}
+    for (path, alice_batch_result, bob_batch_result) in zip(dataset.keys(), result.alice_results.values(),
+                                                            result.bob_results.values()):
+        session = path.split("/")[-1]
+
+        if session == "bqc":
+            # if session_type == "BQC":
+            #     # Effective computation: measure in Z the following state:
+            #     # H Rz(beta) H Rz(alpha) |+>
+            #     # m2 should be this outcome
+            #
+            #     # angles are in multiples of pi/16
+            #     # check(alpha=8, beta=8, theta1=0, theta2=0, expected=0, num_iterations=12)
+            #     bob_batch_results = bqc_result.bob_results
+            #     for _, batch_results in bob_batch_results.items():
+            #         program_results = batch_results.results
+            #         m2s = [result.values["m2"] for result in program_results]
+            #         assert all(m2 == expected for m2 in m2s)
+            for program_result in alice_batch_result.results:
+                print(program_result)
+            for program_result in bob_batch_result.results:
+                print(program_result)
+
+        if session == "pingpong":
+            for program_result in alice_batch_result.results:
+                # Alice always prepares state 1 to teleport
+                outcome = program_result.values["outcome"]
+                condition1 = outcome == 1
+                print("pingpong: Alice measures state 1 is", condition1)
+            # TODO: you need to check this for all executions
+            q0 = result.alice_procnode.qdevice.get_local_qubit(0)
+            fidelity_threshold = 2/3
+            condition = has_state(q0, ketstates.s1, margin=1 - fidelity_threshold)
+            print("pingpong condition is", condition)
+
+        if session == "qkd":
+            for (alice, bob) in zip(alice_batch_result.results, bob_batch_result.results):
+                condition = all(alice.values[v] == bob.values[v] for v in ["m0", "m1", "m2", "m3", "m4"])
+                # TODO: also check angles?
+                print("qkd condition is", condition)
+
+        print(f"{path}:\n\t{alice_batch_result}\n\t{bob_batch_result}")
+
+    success_metrics = {
+        "success_probability": sum(successful_sessions.values()) / n_sessions,
+        "makespan": result.makespan
+    }
+
+    for (session, successes) in successful_sessions.items():
+        success_metrics.update({f"success_probability_{session}": successes / (n_sessions / len(dataset.keys()))})
+
+    if save:
+        save_success_metrics(success_metrics)
+
+    return result
 
 
 if __name__ == "__main__":
@@ -247,7 +278,9 @@ if __name__ == "__main__":
 
     # res = evaluate_node_schedule("6-sessions_dataset-0_NS-128_schedule-HEU_node")
     # res = evaluate_node_schedule("6-sessions_dataset-1_NS-169_schedule-HEU_node")
-    res = evaluate_node_schedule("6-sessions_dataset-2_NS-0_schedule-HEU_node")
+    # res = evaluate_node_schedule("6-sessions_dataset-2_NS-0_schedule-HEU_node")
+    # res = evaluate_node_schedule("6-sessions_dataset-3_NS-46_schedule-HEU_node")
+    res = evaluate_node_schedule("6-sessions_dataset-4_NS-339_schedule-HEU_node")
 
     end = time.time()
     print(end - start)
