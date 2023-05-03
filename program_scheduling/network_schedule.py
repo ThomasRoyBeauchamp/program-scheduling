@@ -6,8 +6,8 @@ from itertools import chain
 import numpy as np
 import pandas as pd
 
-import datasets
-from session_metadata import SessionMetadata
+from program_scheduling.datasets import create_dataset
+from program_scheduling.session_metadata import SessionMetadata
 from setup_logging import setup_logging
 
 logger = logging.getLogger("program_scheduling")
@@ -16,7 +16,7 @@ logger = logging.getLogger("program_scheduling")
 class NetworkSchedule:
     QC_LENGTH = 380_000  # QC duration constant set by Qoala
 
-    def __init__(self, dataset_id, n_sessions, sessions=None, start_times=None, filename=None, save=False, seed=None,
+    def __init__(self, dataset_id, n_sessions, sessions=None, start_times=None, filename=None, save=True, seed=None,
                  length_factor=3):
         """
         Network schedule class. Dataset ID and total number of sessions must be given. If sessions and start_times
@@ -31,19 +31,17 @@ class NetworkSchedule:
         """
         self.dataset_id = dataset_id
         self.n_sessions = n_sessions
-        self.dataset = datasets.create_dataset(id=dataset_id, n_sessions=n_sessions)
+        self.dataset = create_dataset(dataset_id=dataset_id, n_sessions=n_sessions)
+        self.length_factor = length_factor
         self.length = NetworkSchedule._calculate_length(self.dataset, length_factor=length_factor)
         self.id = None
 
         if start_times is None and sessions is None:
             if save:
-                path = "network_schedules"
-                if not os.path.exists(path):
-                    os.makedirs(path)
-                if filename is None:
-                    filename = f"network-schedule_{self.n_sessions}-sessions_dataset-{self.dataset_id}"
-                self.id = (max([int(f.split(".")[0].split("-")[-1]) for f in os.listdir(path) if filename in f]) + 1) \
-                    if len([f for f in os.listdir(path) if filename in f]) > 0 else 0
+                folder_path = os.path.dirname(__file__).rstrip("program_scheduling") + "network_schedules"
+                if not os.path.exists(folder_path):
+                    os.makedirs(folder_path)
+                self.id = self.calculate_id(folder_path)
                 self.generate_random_network_schedule(seed=self.id)
                 self.save_network_schedule(filename=filename)
             else:
@@ -55,6 +53,21 @@ class NetworkSchedule:
             self.sessions = sessions
             self.start_times = start_times
 
+    def calculate_id(self, folder_path):
+        relevant_ids = []
+        filename_part = NetworkSchedule.get_name(dataset_id=self.dataset_id, n_sessions=self.n_sessions,
+                                                 length_factor=self.length_factor)
+        for f in os.listdir(folder_path):
+            if filename_part in f:
+                relevant_ids.append(int(f.split(".")[0].split("-")[-1]))
+        return max(relevant_ids) + 1 if len(relevant_ids) > 0 else 0
+
+    @staticmethod
+    def scale_down(network_schedule, factor):
+        network_schedule.start_times = list(map(lambda t: int(t / factor), network_schedule.start_times))
+        network_schedule.length = int(network_schedule.length / factor)  # TODO: is this always int?
+        return network_schedule
+
     def save_network_schedule(self, filename):
         """
         Saves the network schedule. First checks if network_schedules folder is created.
@@ -63,10 +76,13 @@ class NetworkSchedule:
         :param id: Index of the network schedule also used as a seed for random generation
         :return:
         """
-        path = "network_schedules"
+        folder_path = os.path.dirname(__file__).rstrip("program_scheduling") + "network_schedules"
+        if filename is None:
+            filename = NetworkSchedule.get_name(dataset_id=self.dataset_id, n_sessions=self.n_sessions,
+                                                ns_id=self.id, length_factor=self.length_factor)
         df = pd.DataFrame(data={"session": self.sessions,
                                 "start_time": self.start_times})
-        df.to_csv(f"{path}/{filename}_id-{self.id}.csv", index=False)
+        df.to_csv(f"{folder_path}/{filename}.csv", index=False)
 
     def _get_all_timeslots(self, seed):
         # to make sure no scheduled timeslot is longer than the actual network schedule
@@ -241,6 +257,13 @@ class NetworkSchedule:
             length += (max(total_alice, total_bob) * v)
         # TODO: how to decide on the factor
         return int(length) * length_factor
+
+    @staticmethod
+    def get_name(dataset_id, n_sessions, length_factor, ns_id=None):
+        if ns_id is None:
+            return f"network-schedule_sessions-{n_sessions}_dataset-{dataset_id}_length-{length_factor}"
+        else:
+            return f"network-schedule_sessions-{n_sessions}_dataset-{dataset_id}_length-{length_factor}_id-{ns_id}"
 
     def rewrite_sessions(self, dataset):
         # TODO: make this prettier

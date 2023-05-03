@@ -1,8 +1,8 @@
 import logging
 import sys
 
-from session_metadata import SessionMetadata, BlockMetadata
-from math import gcd, floor, ceil
+from program_scheduling.session_metadata import SessionMetadata, BlockMetadata
+from math import gcd, floor
 from functools import reduce
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,12 @@ class ActivityMetadata:
         return qc_indices
 
     def _update_qc_blocks_based_on_network_schedule(self, network_schedule):
+        """
+        In the future, each session might have a different QC block length.
+
+        :param network_schedule:
+        :return:
+        """
         if network_schedule is None:
             return
         for i in range(self.n_blocks):
@@ -127,6 +133,16 @@ class ActiveSet:
             last_session_id += number
         return active
 
+    def get_gcd(self):
+        return reduce(gcd, self.durations)
+
+    def scale_down(self):
+        gcd = self.get_gcd()
+        scaled_durations = [int(d / gcd) for d in self.durations]
+        # these might not be integers but as long as d_max is rounded up, it should be fine
+        scaled_d_max = [floor(d / gcd) if d is not None else None for d in self.d_max]
+        return scaled_durations, scaled_d_max
+
     def _merge_activity_metadata(self, other: ActivityMetadata):
         if self.n_blocks == 0:  # we don't need to reindex successors
             self.successors += other.successors
@@ -142,13 +158,3 @@ class ActiveSet:
         self.d_max += other.d_max
         self.qc_indices += other.qc_indices
         self.cs_ids += other.cs_ids
-
-    def scale_down(self):
-        self.gcd = reduce(gcd, self.durations)
-        self.durations = [int(d / self.gcd) for d in self.durations]
-        # these might not be integers but as long as d_max is rounded up, it should be fine
-        self.d_max = [floor(d / self.gcd) if d is not None else None for d in self.d_max]
-
-    def scale_up(self):
-        self.durations = [d * self.gcd for d in self.durations]
-        logger.debug("Note that the minimum and maximum time lags are not scaled back up.")
