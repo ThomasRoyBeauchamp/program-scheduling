@@ -65,9 +65,22 @@ class NodeSchedule:
             self.save_success_metrics(solve_time=solve_time)
 
     @staticmethod
-    def get_name(dataset_id, n_sessions, ns_id, length_factor, schedule_type, role):
-        return f"node-schedule_sessions-{n_sessions}_dataset-{dataset_id}_length-{length_factor}_" \
-               f"schedule-{schedule_type}_NS-{ns_id}_role-{role}"
+    def get_name(dataset_id, n_sessions, schedule_type, length_factor=None, ns_id=None, role=None):
+        if length_factor is None and ns_id is None and role is None:
+            return f"node-schedule_sessions-{n_sessions}_dataset-{dataset_id}_schedule-{schedule_type}"
+        else:
+            return f"node-schedule_sessions-{n_sessions}_dataset-{dataset_id}_schedule-{schedule_type}_" \
+               f"length-{length_factor}_NS-{ns_id}_role-{role}"
+
+    @staticmethod
+    def get_relevant_node_schedule_names(dataset_id, n_sessions, schedule_type):
+        relevant_node_schedule_names = []
+        folder_path = os.path.dirname(__file__).rstrip("program_scheduling") + "node_schedules"
+        filename_part = NodeSchedule.get_name(dataset_id=dataset_id, n_sessions=n_sessions, schedule_type=schedule_type)
+        for f in os.listdir(folder_path):
+            if filename_part in f:
+                relevant_node_schedule_names.append(f[:-8] if "bob" in f else f[:-10])
+        return set(relevant_node_schedule_names)
 
     def construct_node_schedule(self, network_schedule, schedule_type):
         scaled_durations, scaled_d_max = self.active_set.scale_down()
@@ -216,7 +229,8 @@ class NodeSchedule:
             "PUF_CPU": self.get_PUF_CPU(),
             "PUF_QPU": self.get_PUF_QPU()
         }
-        df = pd.DataFrame(data={**metadata, **success_metrics}, columns=list(metadata.keys()) + list(success_metrics.keys()), index=[0])
+        df = pd.DataFrame(data={**metadata, **success_metrics},
+                          columns=list(metadata.keys()) + list(success_metrics.keys()), index=[0])
 
         if os.path.isfile(f"{path}/{filename}.csv"):  # if the file exists, append
             old_df = pd.read_csv(f"{path}/{filename}.csv")

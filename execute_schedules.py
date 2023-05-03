@@ -21,6 +21,7 @@ from qoala.sim.procnode import ProcNode
 from qoala.util.math import has_state
 
 from program_scheduling.datasets import create_dataset
+from program_scheduling.node_schedule import NodeSchedule
 from setup_logging import setup_logging
 
 
@@ -196,34 +197,45 @@ class NodeScheduleResult:
     makespan: float
 
 
-def save_success_metrics(node_schedule_name, success_metrics):
-    filename = "results/" + None
-    metadata = {
-        "dataset": None,
-        "n_sessions": None,
-        "ns_id": None,
-        "sched_type": None,
-        "risk_aware": None,
-        "qoala_run": None
-    }
-    metadata.update(success_metrics)
-
-    df = pd.DataFrame(data=success_metrics, columns=list(success_metrics.keys()))
-    if os.path.isfile(filename):  # if the file exists, append
-        old_df = pd.read_csv(filename)
-        new_df = pd.concat([old_df, df], ignore_index=True)
-        new_df.to_csv(filename, index=False)
-    else:  # otherwise make new file
-        df.to_csv(filename, index=False)
-    pass
-
-
-def evaluate_node_schedule(node_schedule_name, save=True):
-    # node_schedule_name is `6-sessions_dataset-1_NS-1_schedule-HEU_node`
+def save_success_metrics(node_schedule_name, success_metrics, schedule_type, n_qoala_runs, risk_aware):
+    # there will be a saved file for each combination of dataset, number of sessions, and session type
+    # node schedule name is e.g. node-schedule_sessions-6_dataset-0_schedule-HEU_length-3_NS-75_role
     parts = node_schedule_name.split("_")
-    dataset_id = int(parts[1].split("-")[1])
-    n_sessions = int(parts[0].split("-")[0])
-    dataset = create_dataset(id=dataset_id, n_sessions=n_sessions)
+    n_sessions = int(parts[1].split("-")[1])
+    dataset_id = int(parts[2].split("-")[1])
+    assert schedule_type == parts[3].split("-")[1]
+    length_factor = int(parts[4].split("-")[1])
+    ns_id = parts[5].split("-")[1]
+
+    filename = f"qoala-results-node-schedule_sessions-{n_sessions}_dataset_{dataset_id}_schedule-{schedule_type}"
+
+    metadata = {
+        "qoala_run_index": list(range(n_qoala_runs)),
+        "dataset_id": [dataset_id] * n_qoala_runs,
+        "n_sessions": [n_sessions] * n_qoala_runs,
+        "ns_id": [ns_id] * n_qoala_runs,
+        "schedule_type": [schedule_type] * n_qoala_runs,
+        "risk_aware": [risk_aware] * n_qoala_runs,
+        "length_factor": [length_factor] * n_qoala_runs
+    }
+
+    df = pd.DataFrame(data={**metadata, **success_metrics},
+                      columns=list(metadata.keys()) + list(success_metrics.keys()))
+
+    if os.path.isfile(f"results/{filename}.csv"):  # if the file exists, append
+        old_df = pd.read_csv(f"results/{filename}.csv")
+        new_df = pd.concat([old_df, df], ignore_index=True)
+        new_df.to_csv(f"results/{filename}.csv", index=False)
+    else:  # otherwise make new file
+        df.to_csv(f"results/{filename}.csv", index=False)
+
+
+def evaluate_node_schedule(node_schedule_name):
+    # node_schedule_name is `node-schedule_sessions-6_dataset-1_schedule-HEU_length-3_NS-1_role`
+    parts = node_schedule_name.split("_")
+    dataset_id = int(parts[2].split("-")[1])
+    n_sessions = int(parts[1].split("-")[1])
+    dataset = create_dataset(dataset_id=dataset_id, n_sessions=n_sessions)
 
     result = execute_node_schedule(dataset, node_schedule_name)
 
@@ -285,9 +297,6 @@ def evaluate_node_schedule(node_schedule_name, save=True):
     for (session, successes) in successful_sessions.items():
         success_metrics.update({f"success_probability_{session}": successes / (n_sessions / len(dataset.keys()))})
 
-    if save:
-        save_success_metrics(node_schedule_name, success_metrics)
-
     return success_metrics
 
 
@@ -301,13 +310,13 @@ if __name__ == "__main__":
                         help="Total number of sessions in a dataset.")
     parser.add_argument("-n", '--n_qoala_runs', required=False, default=100, type=int,
                         help="How many networks schedules should be created.")
-    parser.add_argument('--no-ns', dest="no-ns", action="store_true",
+    parser.add_argument('--no_ns', dest="no_ns", action="store_true",
                         help="The schedules to be executed were created without network schedule constraints.")
     parser.add_argument('--opt', dest="opt", action="store_true",
                         help="The schedules to be executed were scheduled in an optimal fashion.")
     parser.add_argument('--naive', dest="naive", action="store_true",
                         help="The schedules to be executed were scheduled in a naive fashion.")
-    parser.add_argument('--risk-aware', dest="risk-aware", action="store_true",
+    parser.add_argument('--risk_aware', dest="risk_aware", action="store_true",
                         help="Use a risk-aware extension of Qoala execution.")
     parser.add_argument('--log', dest='loglevel', type=str, required=False, default="INFO",
                         help="Set logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
@@ -315,15 +324,32 @@ if __name__ == "__main__":
 
     setup_logging(args.loglevel)
     logger = logging.getLogger("program_scheduling")
+    args.dataset_id=0
+    args.n_qoala_runs = 2
+
+    if args.dataset_id is None and not args.all:
+        raise ValueError("No dataset ID was specified and the `--all` flag is not set.")
+
+    dataset_ids = range(7) if args.all else [args.dataset_id]
+    schedule_type = "OPT" if args.opt else ("NAIVE" if args.naive else "HEU")
 
     start = time.time()
+    for dataset_id in dataset_ids:
+        for node_schedule_name in NodeSchedule.get_relevant_node_schedule_names(dataset_id, args.n_sessions,
+                                                                                schedule_type=schedule_type):
+            if args.no_ns and "NS-None" not in node_schedule_name:
+                continue
+            elif not args.no_ns and "NS-None" in node_schedule_name:
+                continue
 
-    # res = evaluate_node_schedule("6-sessions_dataset-0_NS-128_schedule-HEU_node")
-    # res = evaluate_node_schedule("6-sessions_dataset-1_NS-169_schedule-HEU_node")
-    # res = evaluate_node_schedule("6-sessions_dataset-2_NS-0_schedule-HEU_node")
-    res = evaluate_node_schedule("6-sessions_dataset-3_NS-46_schedule-HEU_node")
-    # res = evaluate_node_schedule("6-sessions_dataset-4_NS-339_schedule-HEU_node")
-    print(res)
+            success_metrics = {}
+            for i in range(args.n_qoala_runs):
+                result = evaluate_node_schedule(node_schedule_name=node_schedule_name)
+                for (k, v) in result.items():
+                    success_metrics.update({k: success_metrics.get(k, []) + [v]})
+
+            save_success_metrics(node_schedule_name=node_schedule_name, success_metrics=success_metrics,
+                                 schedule_type=schedule_type, n_qoala_runs=args.n_qoala_runs, risk_aware=args.risk_aware)
 
     end = time.time()
     logger.info("Time taken to finish: %.4f seconds" % (end - start))
