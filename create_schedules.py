@@ -3,8 +3,8 @@ import time
 from argparse import ArgumentParser
 from copy import deepcopy
 
-from create_node_schedule import create_node_schedule, create_dataset
-from network_schedule import NetworkSchedule
+from program_scheduling.create_node_schedule import create_node_schedule, create_dataset
+from program_scheduling.network_schedule import NetworkSchedule
 from setup_logging import setup_logging
 
 if __name__ == '__main__':

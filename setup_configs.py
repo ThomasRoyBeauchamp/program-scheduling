@@ -6,7 +6,7 @@ from qoala.runtime.config import ProcNodeNetworkConfig
 from qoala.runtime.program import ProgramInput
 from qoala.sim.build import build_network
 
-from run_qoala import create_network_info, create_batch, load_program, create_procnode_cfg
+from execute_schedules import create_network_info, create_batch, load_program, create_procnode_cfg
 
 
 def retrieve_tasks(config, save_filename=None, num_qubits=3):

@@ -12,8 +12,7 @@ from datasets import create_dataset
 from setup_logging import setup_logging
 
 
-
-
+# TODO: should this be moved to node_schedule.py?
 def create_node_schedule(dataset, role, network_schedule=None, network_schedule_name=None, schedule_type="HEU",
                          save_schedule=False, save_schedule_filename=None, save_metrics=False, save_metrics_name=None,
                          save_metrics_filename=None, dataset_id=None):

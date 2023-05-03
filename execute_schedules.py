@@ -20,7 +20,7 @@ from qoala.sim.build import build_network
 from qoala.sim.procnode import ProcNode
 from qoala.util.math import has_state
 
-from datasets import create_dataset
+from program_scheduling.datasets import create_dataset
 from setup_logging import setup_logging
 
 
@@ -126,13 +126,14 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
             # theta should be either 0 (Z basis meas) or 24 (X basis measurement) for rot Y rotation
             alice_inputs = [ProgramInput(
                 # TODO: use kwargs or default values?
-                {"bob_id": bob_id, "theta0": 0, "theta1": 0, "theta2": 0, "theta3": 0, "theta4": 0}
+                {"bob_id": bob_id, "theta0": 0, "theta1": 24, "theta2": 0, "theta3": 24, "theta4": 0}
             ) for _ in range(num_iterations)]
         elif session == "pingpong":
             alice_inputs = [ProgramInput({"bob_id": bob_id}) for _ in range(num_iterations)]
         elif session == "bqc":
             alice_inputs = [ProgramInput(
                 # TODO: use kwargs or default values?
+                # angles are in multiples of pi / 16
                 {"bob_id": bob_id, "alpha": 8, "beta": 8, "theta1": 0, "theta2": 0}
             ) for _ in range(num_iterations)]
         else:
@@ -157,7 +158,7 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
             # theta should be either 0 (Z basis meas) or 24 (X basis measurement) for rot Y rotation
             bob_inputs = [ProgramInput(
                 # TODO: use kwargs or default values?
-                {"alice_id": alice_id, "theta0": 0, "theta1": 0, "theta2": 0, "theta3": 0, "theta4": 0}
+                {"alice_id": alice_id, "theta0": 0, "theta1": 24, "theta2": 0, "theta3": 24, "theta4": 0}
             ) for _ in range(num_iterations)]
         elif session == "pingpong":
             bob_inputs = [ProgramInput({"alice_id": alice_id}) for _ in range(num_iterations)]
@@ -196,16 +197,24 @@ class NodeScheduleResult:
 
 
 def save_success_metrics(node_schedule_name, success_metrics):
-    # filename = None
-    # # TODO: add NS id to this
-    # df = pd.DataFrame(success_metrics)
-    #
-    # if os.path.isfile(filename):  # if the file exists, append
-    #     old_df = pd.read_csv(filename)
-    #     new_df = pd.concat([old_df, df], ignore_index=True)
-    #     new_df.to_csv(filename, index=False)
-    # else:  # otherwise make new file
-    #     df.to_csv(filename, index=False)
+    filename = "results/" + None
+    metadata = {
+        "dataset": None,
+        "n_sessions": None,
+        "ns_id": None,
+        "sched_type": None,
+        "risk_aware": None,
+        "qoala_run": None
+    }
+    metadata.update(success_metrics)
+
+    df = pd.DataFrame(data=success_metrics, columns=list(success_metrics.keys()))
+    if os.path.isfile(filename):  # if the file exists, append
+        old_df = pd.read_csv(filename)
+        new_df = pd.concat([old_df, df], ignore_index=True)
+        new_df.to_csv(filename, index=False)
+    else:  # otherwise make new file
+        df.to_csv(filename, index=False)
     pass
 
 
@@ -223,43 +232,50 @@ def evaluate_node_schedule(node_schedule_name, save=True):
                                                             result.bob_results.values()):
         session = path.split("/")[-1]
 
+        print(f"\n{session}:\nAlice's results: {alice_batch_result}\nBob's results: {bob_batch_result}\n")  # TODO: remove this
+
         if session == "bqc":
-            # if session_type == "BQC":
-            #     # Effective computation: measure in Z the following state:
-            #     # H Rz(beta) H Rz(alpha) |+>
-            #     # m2 should be this outcome
-            #
-            #     # angles are in multiples of pi/16
-            #     # check(alpha=8, beta=8, theta1=0, theta2=0, expected=0, num_iterations=12)
-            #     bob_batch_results = bqc_result.bob_results
-            #     for _, batch_results in bob_batch_results.items():
-            #         program_results = batch_results.results
-            #         m2s = [result.values["m2"] for result in program_results]
-            #         assert all(m2 == expected for m2 in m2s)
-            for program_result in alice_batch_result.results:
-                print(program_result)
-            for program_result in bob_batch_result.results:
-                print(program_result)
+            # m2 should be measurement in Z basis of the eff computation H Rz(beta) H Rz(alpha) |+>
+            for i, program_result in enumerate(bob_batch_result.results):
+                bob_measures_expected_outcome = program_result.values["m2"] == 0
+                successful_bqc_session = bob_measures_expected_outcome
+                if successful_bqc_session:
+                    successful_sessions.update({"bqc": successful_sessions.get("bqc", 0) + 1})
+                logger.debug(f"The BQC session #{i} was successful" if successful_bqc_session
+                             else f"The BQC session #{i} failed")
 
         if session == "pingpong":
-            for program_result in alice_batch_result.results:
+            for i, program_result in enumerate(alice_batch_result.results):
                 # Alice always prepares state 1 to teleport
-                outcome = program_result.values["outcome"]
-                condition1 = outcome == 1
-                print("pingpong: Alice measures state 1 is", condition1)
-            # TODO: you need to check this for all executions
+                alice_measures_correct_outcome = program_result.values["outcome"] == 1
+                successful_pingpong_session = alice_measures_correct_outcome
+                if successful_pingpong_session:
+                    successful_sessions.update({"pingpong": successful_sessions.get("pingpong", 0) + 1})
+                print(f"The PP session #{i} was successful" if successful_pingpong_session else f"The PP #{i} session failed")
+
+            # TODO: you need to check this for all executions -- if it's not possible, should I instead vary the state
+            # to be teleported?
             q0 = result.alice_procnode.qdevice.get_local_qubit(0)
             fidelity_threshold = 2/3
             condition = has_state(q0, ketstates.s1, margin=1 - fidelity_threshold)
-            print("pingpong condition is", condition)
+            print("pingpong fidelity-checking condition is", condition)
 
         if session == "qkd":
-            for (alice, bob) in zip(alice_batch_result.results, bob_batch_result.results):
-                condition = all(alice.values[v] == bob.values[v] for v in ["m0", "m1", "m2", "m3", "m4"])
-                # TODO: also check angles?
-                print("qkd condition is", condition)
-
-        print(f"{path}:\n\t{alice_batch_result}\n\t{bob_batch_result}")
+            for i, (alice, bob) in enumerate(zip(alice_batch_result.results, bob_batch_result.results)):
+                default_thetas = {
+                    "alice_theta0": 0, "alice_theta1": 24, "alice_theta2": 0, "alice_theta3": 24, "alice_theta4": 0,
+                    "bob_theta0": 0, "bob_theta1": 24, "bob_theta2": 0, "bob_theta3": 24, "bob_theta4": 0,
+                }
+                same_meas_outcomes = all(alice.values[v] == bob.values[v] for v in ["m0", "m1", "m2", "m3", "m4"])
+                alice_gets_correct_thetas = all(alice.values[v] == default_thetas[v] for v in
+                                                ["bob_theta" + str(t) for t in [0, 1, 2, 3, 4]])
+                bob_gets_correct_thetas = all(bob.values[v] == default_thetas[v] for v in
+                                              ["alice_theta" + str(t) for t in [0, 1, 2, 3, 4]])
+                successful_qkd_session = same_meas_outcomes and alice_gets_correct_thetas and bob_gets_correct_thetas
+                if successful_qkd_session:
+                    successful_sessions.update({"qkd": successful_sessions.get("qkd", 0) + 1})
+                logger.debug(f"The QKD session #{i} was successful" if successful_qkd_session
+                             else f"The QKD session #{i} failed")
 
     success_metrics = {
         "success_probability": sum(successful_sessions.values()) / n_sessions,
@@ -272,7 +288,7 @@ def evaluate_node_schedule(node_schedule_name, save=True):
     if save:
         save_success_metrics(node_schedule_name, success_metrics)
 
-    return result
+    return success_metrics
 
 
 if __name__ == "__main__":
@@ -290,8 +306,9 @@ if __name__ == "__main__":
     # res = evaluate_node_schedule("6-sessions_dataset-0_NS-128_schedule-HEU_node")
     # res = evaluate_node_schedule("6-sessions_dataset-1_NS-169_schedule-HEU_node")
     # res = evaluate_node_schedule("6-sessions_dataset-2_NS-0_schedule-HEU_node")
-    # res = evaluate_node_schedule("6-sessions_dataset-3_NS-46_schedule-HEU_node")
-    res = evaluate_node_schedule("6-sessions_dataset-4_NS-339_schedule-HEU_node")
+    res = evaluate_node_schedule("6-sessions_dataset-3_NS-46_schedule-HEU_node")
+    # res = evaluate_node_schedule("6-sessions_dataset-4_NS-339_schedule-HEU_node")
+    print(res)
 
     end = time.time()
     logger.info("Time taken to finish: %.4f seconds" % (end - start))
