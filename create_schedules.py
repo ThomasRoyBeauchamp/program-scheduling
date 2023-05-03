@@ -14,7 +14,7 @@ if __name__ == '__main__':
                         help="Generate schedules for all datasets at once.")
     parser.add_argument('-s', '--n_sessions', required=False, default=6, type=int,
                         help="Total number of sessions in a dataset.")
-    parser.add_argument("-n", '--n_ns', required=False, default=10, type=int,
+    parser.add_argument("-n", '--n_ns', required=False, default=100, type=int,
                         help="How many networks schedules should be created.")
     parser.add_argument('--opt', dest="opt", action="store_true",
                         help="Use optimal scheduling approach (i.e. use an objective function to minimise makespan).")

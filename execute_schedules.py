@@ -293,9 +293,24 @@ def evaluate_node_schedule(node_schedule_name, save=True):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    # logging
+    parser.add_argument('-d', '--dataset-id', required=False, type=int,
+                        help="Dataset IDs of schedules to be executed.")
+    parser.add_argument("--all", dest="all", default=False, action="store_true",
+                        help="Schedules for all datasets should be executed.")
+    parser.add_argument('-s', '--n_sessions', required=False, default=6, type=int,
+                        help="Total number of sessions in a dataset.")
+    parser.add_argument("-n", '--n_qoala_runs', required=False, default=100, type=int,
+                        help="How many networks schedules should be created.")
+    parser.add_argument('--no-ns', dest="no-ns", action="store_true",
+                        help="The schedules to be executed were created without network schedule constraints.")
+    parser.add_argument('--opt', dest="opt", action="store_true",
+                        help="The schedules to be executed were scheduled in an optimal fashion.")
+    parser.add_argument('--naive', dest="naive", action="store_true",
+                        help="The schedules to be executed were scheduled in a naive fashion.")
+    parser.add_argument('--risk-aware', dest="risk-aware", action="store_true",
+                        help="Use a risk-aware extension of Qoala execution.")
     parser.add_argument('--log', dest='loglevel', type=str, required=False, default="INFO",
-                        help="Set log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
+                        help="Set logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
     args, unknown = parser.parse_known_args()
 
     setup_logging(args.loglevel)
