@@ -21,6 +21,7 @@ from qoala.sim.procnode import ProcNode
 from qoala.util.math import has_state
 
 from datasets import create_dataset
+from setup_logging import setup_logging
 
 
 def create_network_info(names: List[str]) -> NetworkInfo:
@@ -145,7 +146,7 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
     alice_tasks = alice_procnode.scheduler.get_tasks_to_schedule()
 
     alice_schedule = create_task_schedule(alice_tasks, "node_schedules/" + node_schedule_name + "-alice.csv")
-    logging.debug(f"\nAlice's schedule:\n{alice_schedule}")
+    logger.debug(f"\nAlice's schedule:\n{alice_schedule}")
     alice_procnode.scheduler.upload_schedule(alice_schedule)
 
     for (path, num_iterations) in dataset.items():
@@ -173,7 +174,7 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
     bob_tasks = bob_procnode.scheduler.get_tasks_to_schedule()
 
     bob_schedule = create_task_schedule(bob_tasks, "node_schedules/" + node_schedule_name + "-bob.csv")
-    logging.debug(f"\nBob's schedule:\n{bob_schedule}")
+    logger.debug(f"\nBob's schedule:\n{bob_schedule}")
     bob_procnode.scheduler.upload_schedule(bob_schedule)
 
     network.start()
@@ -269,7 +270,7 @@ def evaluate_node_schedule(node_schedule_name, save=True):
         success_metrics.update({f"success_probability_{session}": successes / (n_sessions / len(dataset.keys()))})
 
     if save:
-        save_success_metrics(success_metrics)
+        save_success_metrics(node_schedule_name, success_metrics)
 
     return result
 
@@ -281,10 +282,8 @@ if __name__ == "__main__":
                         help="Set log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
     args, unknown = parser.parse_known_args()
 
-    numeric_level = getattr(logging, args.loglevel.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: %s' % args.loglevel)
-    logging.basicConfig(level=numeric_level, format="%(levelname)s: %(message)s")
+    setup_logging(args.loglevel)
+    logger = logging.getLogger("program_scheduling")
 
     start = time.time()
 
@@ -295,4 +294,4 @@ if __name__ == "__main__":
     res = evaluate_node_schedule("6-sessions_dataset-4_NS-339_schedule-HEU_node")
 
     end = time.time()
-    logging.info("Time taken to finish: %.4f seconds" % (end - start))
+    logger.info("Time taken to finish: %.4f seconds" % (end - start))

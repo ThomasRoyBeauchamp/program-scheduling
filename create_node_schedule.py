@@ -9,6 +9,9 @@ from node_schedule import NodeSchedule
 from activity_metadata import ActiveSet
 from network_schedule import NetworkSchedule
 from datasets import create_dataset
+from setup_logging import setup_logging
+
+
 
 
 def create_node_schedule(dataset, role, network_schedule=None, network_schedule_name=None, schedule_type="HEU",
@@ -29,6 +32,8 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
     :param dataset_id
     :return:
     """
+    logger = logging.getLogger("program_scheduling")
+
     if network_schedule is not None:
         network_schedule_name = f"network-schedule_{network_schedule.n_sessions}-sessions_dataset-" \
                                 f"{network_schedule.dataset_id}_id-{network_schedule.id}.csv"
@@ -50,7 +55,7 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
         network_schedule.rewrite_sessions(dataset)
         network_schedule.start_times = np.divide(network_schedule.start_times, active.gcd)
         network_schedule.start_times = list(map(lambda x: int(x), network_schedule.start_times))
-        logging.debug(f"Network schedule length={network_schedule.length}")
+        logger.debug(f"Network schedule length={network_schedule.length}")
         network_schedule.length = network_schedule.length / active.gcd
 
     # TODO: how to decide on the extra length?
@@ -157,8 +162,8 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
             ns.save_success_metrics(name=save_metrics_name, filename=save_metrics_filename, role=role,
                                     type=schedule_type, network_schedule=network_schedule, dataset=dataset,
                                     solve_time=end - start)
-        logging.info("Found node schedule successfully.")
-        logging.info("Time taken to finish: %.4f seconds" % (end - start))
+        logger.info("Found node schedule successfully.")
+        logger.info("Time taken to finish: %.4f seconds" % (end - start))
         clear()
 
         for filename in os.listdir():
@@ -167,19 +172,19 @@ def create_node_schedule(dataset, role, network_schedule=None, network_schedule_
 
         return "SAT"
     elif status() is UNKNOWN:
-        logging.info("\nThe solver cannot find a solution. The problem is probably too large.")
-        logging.info("Time taken to finish: %.4f seconds" % (end - start))
+        logger.info("\nThe solver cannot find a solution. The problem is probably too large.")
+        logger.info("Time taken to finish: %.4f seconds" % (end - start))
         clear()
         return "UNKNOWN"
     elif status() is UNSAT:
-        logging.info("\nNo feasible node schedule can be found. "
+        logger.info("\nNo feasible node schedule can be found. "
                      "Consider making the length of node schedule longer or finding a better network schedule.")
-        logging.info("Time taken to finish: %.4f seconds" % (end - start))
+        logger.info("Time taken to finish: %.4f seconds" % (end - start))
         clear()
         return "UNSAT"
     else:
-        logging.info("\nSomething else went wrong.")
-        logging.info("Time taken to finish: %.4f seconds" % (end - start))
+        logger.info("\nSomething else went wrong.")
+        logger.info("Time taken to finish: %.4f seconds" % (end - start))
         clear()
 
 
@@ -246,10 +251,7 @@ if __name__ == '__main__':
                         help="Set log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
     args, unknown = parser.parse_known_args()
 
-    numeric_level = getattr(logging, args.loglevel.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: %s' % args.loglevel)
-    logging.basicConfig(level=numeric_level, format="%(levelname)s: %(message)s")
+    setup_logging(args.loglevel)
 
     dataset = get_dataset(args.dataset, args.n_sessions,
                           args.n_bqc_sessions, args.n_qkd_sessions, args.n_pp_sessions)

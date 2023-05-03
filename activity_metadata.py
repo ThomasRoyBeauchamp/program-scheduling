@@ -5,6 +5,8 @@ from session_metadata import SessionMetadata, BlockMetadata
 from math import gcd, floor, ceil
 from functools import reduce
 
+logger = logging.getLogger(__name__)
+
 
 class ActivityMetadata:
 
@@ -114,11 +116,11 @@ class ActiveSet:
     @staticmethod
     def create_active_set(dataset, role, network_schedule):
         active = ActiveSet()
-        logging.debug(f"Your active set now has the following sessions:")
+        logger.debug(f"Your active set now has the following sessions:")
         last_session_id = 0
         for (config_file, number) in dataset.items():
             ids = list(range(last_session_id, last_session_id + number))
-            logging.debug(f"\t{number} sessions of {config_file}_{role} with IDs {ids}")
+            logger.debug(f"\t{number} sessions of {config_file}_{role} with IDs {ids}")
             for id in ids:
                 session_metadata = SessionMetadata(yaml_file=config_file + f"_{role}.yml", session_id=id)
                 active._merge_activity_metadata(ActivityMetadata(session_metadata, network_schedule))
@@ -149,4 +151,4 @@ class ActiveSet:
 
     def scale_up(self):
         self.durations = [d * self.gcd for d in self.durations]
-        logging.debug("Note that the minimum and maximum time lags are not scaled back up.")
+        logger.debug("Note that the minimum and maximum time lags are not scaled back up.")

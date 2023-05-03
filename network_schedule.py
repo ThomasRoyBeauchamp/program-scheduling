@@ -8,6 +8,9 @@ import pandas as pd
 
 import datasets
 from session_metadata import SessionMetadata
+from setup_logging import setup_logging
+
+logger = logging.getLogger("program_scheduling")
 
 
 class NetworkSchedule:
@@ -177,18 +180,18 @@ class NetworkSchedule:
 
         while not self.feasible_network_schedule(suggested_ns):
             if seed % 100 == 0:
-                logging.debug("Trying out seed", seed)
+                logger.debug("Trying out seed", seed)
             seed += 1
             suggested_ns = self._pick_timeslots(timeslots_to_pick_from, seed)
 
         ns_timeslots = self._add_cs_timeslots(suggested_ns)
         self.id = seed
-        logging.info(f"Generated network schedule with seed={seed}")
+        logger.info(f"Generated network schedule with seed={seed}")
         for i, timeslot in enumerate(ns_timeslots):
             if i == 0:
-                logging.debug(f"\t{timeslot}")
+                logger.debug(f"\t{timeslot}")
             else:
-                logging.debug(f"\t{timeslot} with sep {(timeslot[0] - ns_timeslots[i - 1][0])/self.QC_LENGTH - 1} "
+                logger.debug(f"\t{timeslot} with sep {(timeslot[0] - ns_timeslots[i - 1][0])/self.QC_LENGTH - 1} "
                              f"timeslots since the end of the execution of the previous")
         self.start_times = [start_time for (start_time, _) in ns_timeslots]
         self.sessions = [session for (_, session) in ns_timeslots]
@@ -317,10 +320,7 @@ if __name__ == '__main__':
                         help="Set log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
     args, unknown = parser.parse_known_args()
 
-    numeric_level = getattr(logging, args.loglevel.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: %s' % args.loglevel)
-    logging.basicConfig(level=numeric_level, format="%(levelname)s: %(message)s")
+    setup_logging(args.loglevel)
 
     NetworkSchedule(dataset_id=args.dataset_id, n_sessions=args.n_sessions, save=args.save,
                     filename=args.save_schedule_filename, seed=args.seed, length_factor=args.length_factor)

@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from create_node_schedule import create_node_schedule, create_dataset
 from network_schedule import NetworkSchedule
+from setup_logging import setup_logging
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -19,14 +20,12 @@ if __name__ == '__main__':
     parser.add_argument("-n", '--n_ns', required=False, default=10, type=int,
                         help="How many networks schedules should be created.")
     # logging
-    parser.add_argument('--log', dest='loglevel', type=str, required=False, default="INFO",
+    parser.add_argument('-log', '--log', dest='loglevel', type=str, required=False, default="INFO",
                         help="Set log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
     args, unknown = parser.parse_known_args()
 
-    numeric_level = getattr(logging, args.loglevel.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: %s' % args.loglevel)
-    logging.basicConfig(level=numeric_level, format="%(levelname)s: %(message)s")
+    setup_logging(args.loglevel)
+    logger = logging.getLogger(__name__)
 
     # args.dataset_id = 3
     # args.n_ns = 1
@@ -52,11 +51,11 @@ if __name__ == '__main__':
             if alice_res == "SAT" and bob_res == "SAT":
                 correct_node_schedules.append(ns.id)
 
-        logging.debug(f"Dataset {d}: {args.n_ns} network schedules up to ID {ns_ids[-1]} "
+        logger.debug(f"Dataset {d}: {args.n_ns} network schedules up to ID {ns_ids[-1]} "
                       f"({round(args.n_ns/ns_ids[-1],4) * 100 if ns_ids[-1] != 0 else 100}%, ids: {ns_ids}). "
                       f"Out of that, {len(correct_node_schedules)} network schedules resulted in "
                       f"feasible node schedules ({round(len(correct_node_schedules)/args.n_ns, 2) * 100}% success, "
                       f"ids: {correct_node_schedules}).")
 
     end = time.time()
-    logging.info("Time taken to finish: %.4f seconds" % (end - start))
+    logger.info("Time taken to finish: %.4f seconds" % (end - start))
