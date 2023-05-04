@@ -35,6 +35,7 @@ if __name__ == '__main__':
 
     start = time.time()
     for dataset_id in dataset_ids:
+        d_start = time.time()
         logger.info(f"Creating schedules for dataset {dataset_id}.")
 
         if args.n_ns == 0:
@@ -58,6 +59,7 @@ if __name__ == '__main__':
                 if alice_node_schedule.status != "SAT" or bob_node_schedule.status != "SAT":
                     logger.warning(f"Network schedule with id {network_schedule.id} did not result in feasible "
                                    f"node schedules.")
-
+        d_end = time.time()
+        logger.info(f"Time taken to finish: {round(d_end - d_start, 4)} seconds for dataset {dataset_id}.")
     end = time.time()
     logger.info("Time taken to finish: %.4f seconds" % (end - start))

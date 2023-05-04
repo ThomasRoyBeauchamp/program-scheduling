@@ -196,7 +196,7 @@ class NetworkSchedule:
 
         while not self.feasible_network_schedule(suggested_ns):
             if seed % 100 == 0:
-                logger.debug("Trying out seed", seed)
+                logger.debug(f"Trying out seed {seed}")
             seed += 1
             suggested_ns = self._pick_timeslots(timeslots_to_pick_from, seed)
 

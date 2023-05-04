@@ -34,7 +34,8 @@ class NodeSchedule:
 
             network_schedule = NetworkSchedule(dataset_id=dataset_id, n_sessions=n_sessions,
                                                sessions=list(ns_csv["session"]),
-                                               start_times=list(map(lambda x: int(x), ns_csv["start_time"])))
+                                               start_times=list(map(lambda x: int(x), ns_csv["start_time"])),
+                                               length_factor=ns_length_factor)
             network_schedule.rewrite_sessions(dataset)
         else:
             network_schedule = None
@@ -45,23 +46,21 @@ class NodeSchedule:
             self.start_times = start_times
             solve_time = None
         else:
-            self.status, start_times, solve_time = self.construct_node_schedule(network_schedule=network_schedule,
-                                                                                schedule_type=schedule_type)
-            if self.status == "SAT":
-                self.start_times = start_times
+            self.status, self.start_times, solve_time = self.construct_node_schedule(network_schedule=network_schedule,
+                                                                                     schedule_type=schedule_type)
 
         self.makespan = None
         self.PUF_both = None
         self.PUF_CPU = None
         self.PUF_QPU = None
 
-        if save_schedule:
+        if save_schedule and self.start_times is not None:
             if filename is None:
                 filename = NodeSchedule.get_name(dataset_id=dataset_id, n_sessions=n_sessions, ns_id=ns_id,
                                                  length_factor=self.length_factor, schedule_type=schedule_type,
                                                  role=role)
             self.save_node_schedule(filename=filename)
-        if save_metrics:
+        if save_metrics and self.start_times is not None:
             self.save_success_metrics(solve_time=solve_time)
 
     @staticmethod
@@ -87,9 +86,11 @@ class NodeSchedule:
         if network_schedule is not None:
             scaled_network_schedule = NetworkSchedule.scale_down(network_schedule, self.active_set.get_gcd())
 
-        extra_margin = 600000  # in case a session with post-processing is scheduled right at the end of NS
+        # in case a session with post-processing is scheduled right at the end of NS
+        extra_margin = int(600000 / self.active_set.get_gcd())
         schedule_size = scaled_network_schedule.length + extra_margin if network_schedule is not None \
             else 2 * int(sum(scaled_durations))
+        logger.info(f"Length of network schedule is {schedule_size}")
         capacities = [1, 1]  # capacity of [CPU, QPU]
 
         # x[i] is the starting time of the ith job
