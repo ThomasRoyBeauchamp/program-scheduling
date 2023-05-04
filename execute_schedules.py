@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 import netsquid as ns
+import numpy as np
 import pandas as pd
 from netsquid.qubits import ketstates
 from qoala.lang.ehi import UnitModule
@@ -36,8 +37,11 @@ def create_procnode_cfg(name: str, id: int, num_qubits: int) -> ProcNodeConfig:
     return ProcNodeConfig(
         node_name=name,
         node_id=id,
+        # topology=TopologyConfig.from_file("configs/qoala_topology_config.yaml"),
         topology=TopologyConfig.perfect_config_uniform_default_params(num_qubits),
         latencies=LatenciesConfig(
+            # TODO: how to set these
+            # host_instr_time=100_000, host_peer_latency=1_000_000, qnos_instr_time=100_000
             host_instr_time=500, host_peer_latency=100_000, qnos_instr_time=1000
         ),
     )
@@ -100,7 +104,7 @@ def create_task_schedule(tasks, node_schedule_config):
     return schedule
 
 
-def execute_node_schedule(dataset, node_schedule_name, **kwargs):
+def execute_node_schedule(dataset, node_schedule_name, seed=0):
     ns.sim_reset()
 
     num_qubits = 3
@@ -126,14 +130,15 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
         if session == "qkd":
             # theta should be either 0 (Z basis meas) or 24 (X basis measurement) for rot Y rotation
             alice_inputs = [ProgramInput(
-                # TODO: use kwargs or default values?
                 {"bob_id": bob_id, "theta0": 0, "theta1": 24, "theta2": 0, "theta3": 24, "theta4": 0}
             ) for _ in range(num_iterations)]
         elif session == "pingpong":
-            alice_inputs = [ProgramInput({"bob_id": bob_id}) for _ in range(num_iterations)]
+            # TODO: also include theta input (0 for /0> state, 16 for /1> state)
+            np.random.seed(seed)
+            bases = np.random.choice([0, 16], num_iterations)
+            alice_inputs = [ProgramInput({"bob_id": bob_id, "theta": bases[i]}) for i in range(num_iterations)]
         elif session == "bqc":
             alice_inputs = [ProgramInput(
-                # TODO: use kwargs or default values?
                 # angles are in multiples of pi / 16
                 {"bob_id": bob_id, "alpha": 8, "beta": 8, "theta1": 0, "theta2": 0}
             ) for _ in range(num_iterations)]
@@ -193,7 +198,6 @@ def execute_node_schedule(dataset, node_schedule_name, **kwargs):
 class NodeScheduleResult:
     alice_results: Dict[int, BatchResult]
     bob_results: Dict[int, BatchResult]
-    alice_procnode: ProcNode
     makespan: float
 
 
@@ -237,14 +241,15 @@ def evaluate_node_schedule(node_schedule_name):
     n_sessions = int(parts[1].split("-")[1])
     dataset = create_dataset(dataset_id=dataset_id, n_sessions=n_sessions)
 
-    result = execute_node_schedule(dataset, node_schedule_name)
+    seed = int(parts[5].split("-")[1]) if parts[5].split("-")[1] is not None else 0
+    result = execute_node_schedule(dataset=dataset, node_schedule_name=node_schedule_name, seed=seed)
 
     successful_sessions = {}
     for (path, alice_batch_result, bob_batch_result) in zip(dataset.keys(), result.alice_results.values(),
                                                             result.bob_results.values()):
         session = path.split("/")[-1]
 
-        print(f"\n{session}:\nAlice's results: {alice_batch_result}\nBob's results: {bob_batch_result}\n")  # TODO: remove this
+        logger.debug(f"\n{session}:\nAlice's results: {alice_batch_result}\nBob's results: {bob_batch_result}\n")
 
         if session == "bqc":
             # m2 should be measurement in Z basis of the eff computation H Rz(beta) H Rz(alpha) |+>
@@ -257,20 +262,16 @@ def evaluate_node_schedule(node_schedule_name):
                              else f"The BQC session #{i} failed")
 
         if session == "pingpong":
+            np.random.seed(seed)
+            bases = np.random.choice([0, 16], len(alice_batch_result.results))
             for i, program_result in enumerate(alice_batch_result.results):
-                # Alice always prepares state 1 to teleport
-                alice_measures_correct_outcome = program_result.values["outcome"] == 1
+                # Alice always prepares state |1> to teleport
+                alice_measures_correct_outcome = program_result.values["outcome"] == (0 if bases[i] == 0 else 1)
                 successful_pingpong_session = alice_measures_correct_outcome
                 if successful_pingpong_session:
                     successful_sessions.update({"pingpong": successful_sessions.get("pingpong", 0) + 1})
-                print(f"The PP session #{i} was successful" if successful_pingpong_session else f"The PP #{i} session failed")
-
-            # TODO: you need to check this for all executions -- if it's not possible, should I instead vary the state
-            # to be teleported?
-            q0 = result.alice_procnode.qdevice.get_local_qubit(0)
-            fidelity_threshold = 2/3
-            condition = has_state(q0, ketstates.s1, margin=1 - fidelity_threshold)
-            print("pingpong fidelity-checking condition is", condition)
+                logger.debug(f"The PP session #{i} was successful" if successful_pingpong_session
+                             else f"The PP #{i} session failed")
 
         if session == "qkd":
             for i, (alice, bob) in enumerate(zip(alice_batch_result.results, bob_batch_result.results)):
@@ -279,6 +280,7 @@ def evaluate_node_schedule(node_schedule_name):
                     "bob_theta0": 0, "bob_theta1": 24, "bob_theta2": 0, "bob_theta3": 24, "bob_theta4": 0,
                 }
                 same_meas_outcomes = all(alice.values[v] == bob.values[v] for v in ["m0", "m1", "m2", "m3", "m4"])
+                # these are just sanity checks
                 alice_gets_correct_thetas = all(alice.values[v] == default_thetas[v] for v in
                                                 ["bob_theta" + str(t) for t in [0, 1, 2, 3, 4]])
                 bob_gets_correct_thetas = all(bob.values[v] == default_thetas[v] for v in
@@ -324,8 +326,6 @@ if __name__ == "__main__":
 
     setup_logging(args.loglevel)
     logger = logging.getLogger("program_scheduling")
-    args.dataset_id=0
-    args.n_qoala_runs = 2
 
     if args.dataset_id is None and not args.all:
         raise ValueError("No dataset ID was specified and the `--all` flag is not set.")
