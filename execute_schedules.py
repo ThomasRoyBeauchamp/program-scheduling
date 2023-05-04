@@ -13,17 +13,20 @@ from netsquid.qubits import ketstates
 from qoala.lang.ehi import UnitModule
 from qoala.lang.parse import QoalaParser
 from qoala.lang.program import QoalaProgram
-from qoala.runtime.config import LatenciesConfig, ProcNodeConfig, ProcNodeNetworkConfig, TopologyConfig
+from qoala.runtime.config import LatenciesConfig, ProcNodeConfig, ProcNodeNetworkConfig, TopologyConfig, LinkConfig, \
+    LinkBetweenNodesConfig
 from qoala.runtime.environment import NetworkInfo
 from qoala.runtime.program import BatchInfo, BatchResult, ProgramInput
 from qoala.runtime.schedule import TaskSchedule, TaskScheduleEntry
 from qoala.sim.build import build_network
-from qoala.sim.procnode import ProcNode
-from qoala.util.math import has_state
 
 from program_scheduling.datasets import create_dataset
 from program_scheduling.node_schedule import NodeSchedule
 from setup_logging import setup_logging
+
+HOST_INSTR_TIME = 100_000
+HOST_PEER_LATENCY = 10_000_000
+QNOS_INSTR_TIME = 100_000
 
 
 def create_network_info(names: List[str]) -> NetworkInfo:
@@ -33,16 +36,17 @@ def create_network_info(names: List[str]) -> NetworkInfo:
     return env
 
 
-def create_procnode_cfg(name: str, id: int, num_qubits: int) -> ProcNodeConfig:
+def create_procnode_cfg(name: str, id: int, num_qubits: int, perfect_params=False) -> ProcNodeConfig:
+    if perfect_params:
+        topology = TopologyConfig.perfect_config_uniform_default_params(num_qubits)
+    else:
+        topology = TopologyConfig.from_file("configs/qoala_topology_config.yaml")
     return ProcNodeConfig(
         node_name=name,
         node_id=id,
-        # topology=TopologyConfig.from_file("configs/qoala_topology_config.yaml"),
-        topology=TopologyConfig.perfect_config_uniform_default_params(num_qubits),
+        topology=topology,
         latencies=LatenciesConfig(
-            # TODO: how to set these
-            # host_instr_time=100_000, host_peer_latency=1_000_000, qnos_instr_time=100_000
-            host_instr_time=500, host_peer_latency=100_000, qnos_instr_time=1000
+            host_instr_time=HOST_INSTR_TIME, host_peer_latency=HOST_PEER_LATENCY, qnos_instr_time=QNOS_INSTR_TIME
         ),
     )
 
@@ -104,20 +108,30 @@ def create_task_schedule(tasks, node_schedule_config):
     return schedule
 
 
-def execute_node_schedule(dataset, node_schedule_name, seed=0):
-    ns.sim_reset()
+def create_network_cfg(alice_cfg, bob_cfg):
+    link_config = LinkConfig.from_file("configs/qoala_link_config.yaml")
+    links = [LinkBetweenNodesConfig(node_id1=alice_cfg.node_id, node_id2=bob_cfg.node_id, link_config=link_config)]
 
-    num_qubits = 3
+    return ProcNodeNetworkConfig(nodes=[alice_cfg, bob_cfg], links=links)
+
+
+def execute_node_schedule(dataset, node_schedule_name, seed=0, perfect_params=False):
+    ns.sim_reset()
+    ns.set_qstate_formalism(ns.qubits.qformalism.QFormalism.DM)
+
     network_info = create_network_info(names=["alice", "bob"])
     alice_id = network_info.get_node_id("alice")
     bob_id = network_info.get_node_id("bob")
 
-    alice_node_cfg = create_procnode_cfg("alice", alice_id, num_qubits)
-    bob_node_cfg = create_procnode_cfg("bob", bob_id, num_qubits)
+    alice_node_cfg = create_procnode_cfg("alice", alice_id, num_qubits=2, perfect_params=perfect_params)
+    bob_node_cfg = create_procnode_cfg("bob", bob_id, num_qubits=2, perfect_params=perfect_params)
 
-    network_cfg = ProcNodeNetworkConfig.from_nodes_perfect_links(
-        nodes=[alice_node_cfg, bob_node_cfg], link_duration=380_000
-    )
+    if perfect_params:
+        network_cfg = ProcNodeNetworkConfig.from_nodes_perfect_links(
+            nodes=[alice_node_cfg, bob_node_cfg], link_duration=20_000_000
+        )
+    else:
+        network_cfg = create_network_cfg(alice_node_cfg, bob_node_cfg)
     network = build_network(network_cfg, network_info)
     alice_procnode = network.nodes["alice"]
     bob_procnode = network.nodes["bob"]
@@ -191,7 +205,7 @@ def execute_node_schedule(dataset, node_schedule_name, seed=0):
     bob_results = bob_procnode.scheduler.get_batch_results()
     makespan = ns.sim_time()
 
-    return NodeScheduleResult(alice_results, bob_results, alice_procnode, makespan)
+    return NodeScheduleResult(alice_results, bob_results, makespan)
 
 
 @dataclass
@@ -234,7 +248,7 @@ def save_success_metrics(node_schedule_name, success_metrics, schedule_type, n_q
         df.to_csv(f"results/{filename}.csv", index=False)
 
 
-def evaluate_node_schedule(node_schedule_name):
+def evaluate_node_schedule(node_schedule_name, perfect_params):
     # node_schedule_name is `node-schedule_sessions-6_dataset-1_schedule-HEU_length-3_NS-1_role`
     parts = node_schedule_name.split("_")
     dataset_id = int(parts[2].split("-")[1])
@@ -242,7 +256,8 @@ def evaluate_node_schedule(node_schedule_name):
     dataset = create_dataset(dataset_id=dataset_id, n_sessions=n_sessions)
 
     seed = int(parts[5].split("-")[1]) if parts[5].split("-")[1] is not None else 0
-    result = execute_node_schedule(dataset=dataset, node_schedule_name=node_schedule_name, seed=seed)
+    result = execute_node_schedule(dataset=dataset, node_schedule_name=node_schedule_name, seed=seed,
+                                   perfect_params=perfect_params)
 
     successful_sessions = {}
     for (path, alice_batch_result, bob_batch_result) in zip(dataset.keys(), result.alice_results.values(),
@@ -320,6 +335,8 @@ if __name__ == "__main__":
                         help="The schedules to be executed were scheduled in a naive fashion.")
     parser.add_argument('--risk_aware', dest="risk_aware", action="store_true",
                         help="Use a risk-aware extension of Qoala execution.")
+    parser.add_argument('--perfect_params', dest="perfect_params", action="store_true",
+                        help="Use perfect parameters.")
     parser.add_argument('--log', dest='loglevel', type=str, required=False, default="INFO",
                         help="Set logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL")
     args, unknown = parser.parse_known_args()
@@ -344,12 +361,15 @@ if __name__ == "__main__":
 
             success_metrics = {}
             for i in range(args.n_qoala_runs):
-                result = evaluate_node_schedule(node_schedule_name=node_schedule_name)
+                result = evaluate_node_schedule(node_schedule_name=node_schedule_name,
+                                                perfect_params=args.perfect_params)
                 for (k, v) in result.items():
                     success_metrics.update({k: success_metrics.get(k, []) + [v]})
 
             save_success_metrics(node_schedule_name=node_schedule_name, success_metrics=success_metrics,
                                  schedule_type=schedule_type, n_qoala_runs=args.n_qoala_runs, risk_aware=args.risk_aware)
+            logger.info(f"Executed {args.n_qoala_runs} qoala runs for {node_schedule_name[:-5]} with average "
+                        f"{round(np.mean(success_metrics['success_probability']), 2) * 100} % success probability.")
 
     end = time.time()
     logger.info("Time taken to finish: %.4f seconds" % (end - start))

@@ -1,0 +1,115 @@
+comm_qubit_noise: &comm_qubit_noise
+  T1: 1_000_000_000
+  T2: 1_000_000_000
+
+mem_qubit_noise: &mem_qubit_noise
+  T1: 1_000_000_000
+  T2: 1_000_000_000
+
+comm_qubit: &comm_qubit
+  is_communication: true
+  noise_config_cls: "QubitT1T2Config"
+  noise_config:
+    <<: *comm_qubit_noise
+
+mem_qubit: &mem_qubit
+  is_communication: false
+  noise_config_cls: "QubitT1T2Config"
+  noise_config:
+    <<: *mem_qubit_noise
+
+qubits:
+  - qubit_id: 0
+    qubit_config:
+      <<: *comm_qubit
+  - qubit_id: 1
+    qubit_config:
+      <<: *mem_qubit
+
+single_gate_noise: &single_gate_noise
+  duration: 20_000
+  depolarise_prob: 0.013
+
+gate_x: &gate_x
+  name: "INSTR_X"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *single_gate_noise
+
+gate_z: &gate_z
+  name: "INSTR_Z"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *single_gate_noise
+
+gate_h: &gate_h
+  name: "INSTR_H"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *single_gate_noise
+
+gate_rot_y: &gate_rot_y
+  name: "INSTR_ROT_Y"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *single_gate_noise
+
+gate_rot_z: &gate_rot_z
+  name: "INSTR_ROT_Z"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *single_gate_noise
+
+gate_init: &gate_init
+  name: "INSTR_INIT"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *single_gate_noise
+
+gate_meas: &gate_meas
+  name: "INSTR_MEASURE"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *single_gate_noise
+
+multi_gate_noise: &multi_gate_noise
+  duration: 500_000  # checked
+  depolarise_prob: 0.04  # checked
+
+gate_cnot: &gate_cnot
+  name: "INSTR_CNOT"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *multi_gate_noise
+
+gate_cphase: &gate_cphase
+  name: "INSTR_CZ"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *multi_gate_noise
+
+single_gates:
+  - qubit_id: 0
+    gate_configs:
+    - <<: *gate_x
+    - <<: *gate_z
+    - <<: *gate_h
+    - <<: *gate_rot_y
+    - <<: *gate_rot_z
+    - <<: *gate_init
+    - <<: *gate_meas
+  - qubit_id: 1
+    gate_configs:
+    - <<: *gate_x
+    - <<: *gate_z
+    - <<: *gate_h
+    - <<: *gate_rot_y
+    - <<: *gate_rot_z
+    - <<: *gate_init
+    - <<: *gate_meas
+
+multi_gates:
+  - qubit_ids: [0, 1]
+    gate_configs:
+      - <<: *gate_cnot
+      - <<: *gate_cphase

@@ -6,23 +6,26 @@ from qoala.runtime.config import ProcNodeNetworkConfig
 from qoala.runtime.program import ProgramInput
 from qoala.sim.build import build_network
 
-from execute_schedules import create_network_info, create_batch, load_program, create_procnode_cfg
+from execute_schedules import create_network_info, create_batch, load_program, create_procnode_cfg, create_network_cfg
 
 
-def retrieve_tasks(config, save_filename=None, num_qubits=3):
+def retrieve_tasks(config, save_filename=None, num_qubits=3, perfect_params=False):
     if save_filename is None:
         save_filename = config
 
-    network_info = create_network_info(names=["bob", "alice"])
+    network_info = create_network_info(names=["alice", "bob"])
     alice_id = network_info.get_node_id("alice")
     bob_id = network_info.get_node_id("bob")
 
-    alice_node_cfg = create_procnode_cfg("alice", alice_id, num_qubits)
-    bob_node_cfg = create_procnode_cfg("bob", bob_id, num_qubits)
+    alice_node_cfg = create_procnode_cfg("alice", alice_id, num_qubits=2, perfect_params=perfect_params)
+    bob_node_cfg = create_procnode_cfg("bob", bob_id, num_qubits=2, perfect_params=perfect_params)
 
-    network_cfg = ProcNodeNetworkConfig.from_nodes_perfect_links(
-        nodes=[alice_node_cfg, bob_node_cfg], link_duration=380_000
-    )
+    if perfect_params:
+        network_cfg = ProcNodeNetworkConfig.from_nodes_perfect_links(
+            nodes=[alice_node_cfg, bob_node_cfg], link_duration=20_000_000
+        )
+    else:
+        network_cfg = create_network_cfg(alice_node_cfg, bob_node_cfg)
     network = build_network(network_cfg, network_info)
     alice_procnode = network.nodes["alice"]
     bob_procnode = network.nodes["bob"]
@@ -66,6 +69,8 @@ if __name__ == '__main__':
     parser.add_argument('config', type=str, help="Name of the iqoala program (without the `_alice` or `_bob` suffix).")
     parser.add_argument('-s', '--save_filename', required=False, type=str, default=None,
                         help="Name of the file to save results in.")
+    parser.add_argument('--perfect_params', dest="perfect_params", action="store_true",
+                        help="Use perfect parameters.")
 
     args, unknown = parser.parse_known_args()
-    retrieve_tasks(args.config, args.save_filename)
+    retrieve_tasks(args.config, args.save_filename, perfect_params=args.perfect_params)

@@ -1,0 +1,9 @@
+depolarise_config: &depolarise_config
+  cycle_time: 20_000_000
+  prob_max_mixed: 0.33
+  prob_success: 1
+
+state_delay: 0
+sampler_config_cls: "DepolariseSamplerConfig"
+sampler_config:
+  <<: *depolarise_config
