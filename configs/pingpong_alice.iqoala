@@ -1,6 +1,6 @@
 META_START
     name: alice
-    parameters: bob_id
+    parameters: bob_id, theta
     csockets: 0 -> bob
     epr_sockets: 0 -> bob
 META_END
@@ -9,29 +9,29 @@ META_END
     csocket = assign_cval() : 0
 
 ^b1 {type = QL}:
-    run_subroutine(vec<>) : prepare_qubit
+    run_subroutine(vec<theta>) : prepare_qubit
 
 ^b2 {type = QC}:
     run_request(vec<>) : req0
 
 ^b3 {type = QL}:
-    vec<m1; m2> = run_subroutine(vec<>) : bsm
+    vec<m0; m1> = run_subroutine(vec<>) : bsm
 
 ^b4 {type = CL}:
+    send_cmsg(csocket, m0)
     send_cmsg(csocket, m1)
-    send_cmsg(csocket, m2)
 
 ^b5 {type = QC}:
     run_request(vec<>) : req0
 
 ^b6 {type = CC}:
-    p1 = recv_cmsg(csocket)
+    p0 = recv_cmsg(csocket)
 
 ^b7 {type = CC}:
-    p2 = recv_cmsg(csocket)
+    p1 = recv_cmsg(csocket)
 
 ^b8 {type = QL}:
-    run_subroutine(vec<p1; p2>) : bsm_corrections
+    run_subroutine(vec<p0; p1>) : bsm_corrections
 
 ^b9 {type = QL}:
     vec<outcome> = run_subroutine(vec<>) : measure
@@ -41,28 +41,29 @@ META_END
 
 
 SUBROUTINE prepare_qubit
-    params: 
+    params: theta
     returns: 
     uses: 1
     keeps: 1
     request: 
   NETQASM_START
+    load C0 @input[0]
     set Q1 1
     init Q1
-    x Q1
+    rot_y Q1 C0 4
   NETQASM_END
 
 SUBROUTINE bsm
     params: 
-    returns: m1, m2
+    returns: m0, m1
     uses: 0, 1
     keeps:
     request: 
   NETQASM_START
     set Q0 0
     set Q1 1
-    cnot Q0 Q1
-    h Q0
+    cnot Q1 Q0
+    h Q1
     meas Q0 M0
     meas Q1 M1
     store M0 @output[0]
@@ -70,7 +71,7 @@ SUBROUTINE bsm
   NETQASM_END
 
 SUBROUTINE bsm_corrections
-    params: p1, p2
+    params: p0, p1
     returns: 
     uses: 0
     keeps: 0
@@ -83,9 +84,9 @@ SUBROUTINE bsm_corrections
     set Q0 0
     set R0 0
     beq C0 R0 8
-    z Q0
-    beq C1 R0 10
     x Q0
+    beq C1 R0 10
+    z Q0
     set R15 0
   NETQASM_END
 

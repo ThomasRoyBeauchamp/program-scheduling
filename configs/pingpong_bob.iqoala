@@ -15,27 +15,27 @@ META_END
     run_subroutine(vec<>) : move_qubit
 
 ^b3 {type = CC}:
-    m1 = recv_cmsg(csocket)
+    m0 = recv_cmsg(csocket)
 
 ^b4 {type = CC}:
-    m2 = recv_cmsg(csocket)
+    m1 = recv_cmsg(csocket)
 
 ^b5 {type = QL}:
-    run_subroutine(vec<m1; m2>) : bsm_corrections
+    run_subroutine(vec<m0; m1>) : bsm_corrections
 
 ^b6 {type = QC}:
     run_request(vec<>) : req0
 
 ^b7 {type = QL}:
-    vec<p1; p2> = run_subroutine(vec<>) : bsm
+    vec<p0; p1> = run_subroutine(vec<>) : bsm
 
 ^b8 {type = CL}:
+    send_cmsg(csocket, p0)
     send_cmsg(csocket, p1)
-    send_cmsg(csocket, p2)
 
 
 SUBROUTINE bsm_corrections
-    params: m1, m2
+    params: m0, m1
     returns: 
     uses: 1
     keeps: 1
@@ -48,9 +48,9 @@ SUBROUTINE bsm_corrections
     set Q1 1
     set R0 0
     beq C0 R0 8
-    z Q1
-    beq C1 R0 10
     x Q1
+    beq C1 R0 10
+    z Q1
     set R15 0
   NETQASM_END
 
@@ -71,7 +71,7 @@ SUBROUTINE move_qubit
 
 SUBROUTINE bsm
     params: 
-    returns: p1, p2
+    returns: p0, p1
     uses: 0, 1
     keeps:
     request: 

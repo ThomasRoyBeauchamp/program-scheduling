@@ -7,7 +7,7 @@ blocks:
     CS: null
 - b1:
     type: QL
-    duration: 11000
+    duration: 13000
     CS: 1
 - b2:
     type: QC
