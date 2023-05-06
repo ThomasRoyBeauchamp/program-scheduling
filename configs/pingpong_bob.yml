@@ -11,7 +11,7 @@ blocks:
     CS: 1
 - b2:
     type: QL
-    duration: 1720000
+    duration: 1800000
     CS: 1
 - b3:
     type: CC
@@ -23,7 +23,7 @@ blocks:
     CS: 1
 - b5:
     type: QL
-    duration: 940000
+    duration: 1000000
     CS: 1
 - b6:
     type: QC
@@ -31,7 +31,7 @@ blocks:
     CS: 1
 - b7:
     type: QL
-    duration: 1160000
+    duration: 1200000
     CS: 1
 - b8:
     type: CL

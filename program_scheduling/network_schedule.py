@@ -14,7 +14,7 @@ logger = logging.getLogger("program_scheduling")
 
 
 class NetworkSchedule:
-    QC_LENGTH = 380_000  # QC duration constant set by Qoala
+    QC_LENGTH = 20_000_000  # QC duration constant set by Qoala
 
     def __init__(self, dataset_id, n_sessions, sessions=None, start_times=None, filename=None, save=True, seed=None,
                  length_factor=3):
@@ -87,7 +87,7 @@ class NetworkSchedule:
     def _get_all_timeslots(self, seed):
         # to make sure no scheduled timeslot is longer than the actual network schedule
         np.random.seed(seed)
-        all_timeslots = list(range(500, self.length - self.QC_LENGTH, self.QC_LENGTH))
+        all_timeslots = list(range(100000, self.length - self.QC_LENGTH, self.QC_LENGTH))
 
         assigned_timeslots = []
 
@@ -134,12 +134,12 @@ class NetworkSchedule:
         added = []
         for (start_time, session) in suggested_ns:
             if session == "bqc":
-                # bqc needs to have 2 timeslots inbetween
-                t = 3 * self.QC_LENGTH
+                # bqc needs to have 1 timeslots inbetween
+                t = 2 * self.QC_LENGTH
                 added.append((start_time + t, session))
             if session == "pingpong":
-                # pingpong needs to have 3 timeslots inbetween
-                t = 4 * self.QC_LENGTH
+                # pingpong needs to have 2 timeslots inbetween
+                t = 3 * self.QC_LENGTH
                 added.append((start_time + t, session))
 
         ns = suggested_ns + added
@@ -155,17 +155,23 @@ class NetworkSchedule:
         # check for crit sections
         for (start_time, session) in suggested_ns:
             if session == "bqc":
-                new_start_time = start_time + 3 * self.QC_LENGTH
+                new_start_time = start_time + 2 * self.QC_LENGTH
                 if new_start_time > (self.length - self.QC_LENGTH):
                     return False
-                for blocked in range(start_time + self.QC_LENGTH, new_start_time + 1 + 3 * self.QC_LENGTH, self.QC_LENGTH):
+                # bqc needs to have 1 empty timeslot after
+                for blocked in range(start_time + self.QC_LENGTH,
+                                     new_start_time + 2 * self.QC_LENGTH + 1,
+                                     self.QC_LENGTH):
                     if blocked in [t for (t, _) in suggested_ns]:
                         return False
             if session == "pingpong":
-                new_start_time = start_time + 4 * self.QC_LENGTH
+                new_start_time = start_time + 3 * self.QC_LENGTH
                 if new_start_time > (self.length - self.QC_LENGTH):
                     return False
-                for blocked in range(start_time + self.QC_LENGTH, new_start_time + 1 + 2 * self.QC_LENGTH, self.QC_LENGTH):
+                # pingpong needs to have 2 empty timeslots after
+                for blocked in range(start_time + self.QC_LENGTH,
+                                     new_start_time + 3 * self.QC_LENGTH + 1,
+                                     self.QC_LENGTH):
                     if blocked in [t for (t, _) in suggested_ns]:
                         return False
             if session == "qkd":
@@ -175,7 +181,7 @@ class NetworkSchedule:
         # check for setup time (pingpong)
         for (start_time, session) in suggested_ns:
             if session == "pingpong":
-                if start_time < 20000:
+                if start_time < 450000:  # duration of first two blocks for Alice
                     return False
                 if start_time - self.QC_LENGTH in [t for (t, _) in suggested_ns]:
                     return False
@@ -254,8 +260,8 @@ class NetworkSchedule:
         for k, v in dataset.items():
             total_alice = sum([b.duration for b in SessionMetadata(k + "_alice.yml", session_id=1).blocks])
             total_bob = sum([b.duration for b in SessionMetadata(k + "_bob.yml", session_id=1).blocks])
+            logger.debug(f"Total block duration for {k}: alice={total_alice}, bob={total_bob}")
             length += (max(total_alice, total_bob) * v)
-        # TODO: how to decide on the factor
         return int(length) * length_factor
 
     @staticmethod
@@ -282,8 +288,6 @@ class NetworkSchedule:
                     zip(ids, [0] * len(ids)),
                     zip(ids, [1] * len(ids)),
                     zip(ids, [2] * len(ids)),
-                    zip(ids, [3] * len(ids)),
-                    zip(ids, [4] * len(ids))
                 ))) * 10})
             else:
                 new_d.update({session: list(chain(*zip(

@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 
 import yaml
+import math
 from qoala.lang.ehi import UnitModule
 from qoala.runtime.config import ProcNodeNetworkConfig
 from qoala.runtime.program import ProgramInput
@@ -42,10 +43,15 @@ def retrieve_tasks(config, save_filename=None, num_qubits=3, perfect_params=Fals
     alice_procnode.initialize_processes()
     alice_tasks = alice_procnode.scheduler.get_tasks_to_schedule()
 
+    def round_up(x):
+        return int(x) - int(x) % -100_000
+
     with open('configs/' + save_filename + '_alice.yml', 'w') as outfile:
         yaml.dump({"session_id": "TODO",
                    "app_deadline": "TODO",
-                   "blocks": [{bt.block_name: {"type": bt.typ.name, "duration": int(bt.duration), "CS": "TODO"}}
+                   "blocks": [{bt.block_name: {"type": bt.typ.name,
+                                               "duration": round_up(bt.duration),
+                                               "CS": "TODO"}}
                               for bt in alice_tasks]}, outfile, default_flow_style=False, sort_keys=False)
 
     bob_program = load_program("configs/" + config + "_bob.iqoala")
@@ -60,7 +66,9 @@ def retrieve_tasks(config, save_filename=None, num_qubits=3, perfect_params=Fals
     with open('configs/' + save_filename + '_bob.yml', 'w') as outfile:
         yaml.dump({"session_id": "TODO",
                    "app_deadline": "TODO",
-                   "blocks": [{bt.block_name: {"type": bt.typ.name, "duration": int(bt.duration), "CS": "TODO"}}
+                   "blocks": [{bt.block_name: {"type": bt.typ.name,
+                                               "duration": round_up(bt.duration),
+                                               "CS": "TODO"}}
                               for bt in bob_tasks]}, outfile, default_flow_style=False, sort_keys=False)
 
 

@@ -11,7 +11,7 @@ blocks:
     CS: 1
 - b2:
     type: QL
-    duration: 540000
+    duration: 600000
     CS: 1
 - b3:
     type: QC
@@ -19,7 +19,7 @@ blocks:
     CS: 2
 - b4:
     type: QL
-    duration: 540000
+    duration: 600000
     CS: 2
 - b5:
     type: QC
@@ -27,49 +27,25 @@ blocks:
     CS: 3
 - b6:
     type: QL
-    duration: 540000
+    duration: 600000
     CS: 3
 - b7:
-    type: QC
-    duration: 20000000
-    CS: 4
+    type: CL
+    duration: 300000
+    CS: null
 - b8:
-    type: QL
-    duration: 540000
-    CS: 4
+    type: CC
+    duration: 10000000
+    CS: null
 - b9:
-    type: QC
-    duration: 20000000
-    CS: 5
+    type: CC
+    duration: 10000000
+    CS: null
 - b10:
-    type: QL
-    duration: 540000
-    CS: 5
+    type: CC
+    duration: 10000000
+    CS: null
 - b11:
     type: CL
-    duration: 500000
-    CS: null
-- b12:
-    type: CC
-    duration: 10000000
-    CS: null
-- b13:
-    type: CC
-    duration: 10000000
-    CS: null
-- b14:
-    type: CC
-    duration: 10000000
-    CS: null
-- b15:
-    type: CC
-    duration: 10000000
-    CS: null
-- b16:
-    type: CC
-    duration: 10000000
-    CS: null
-- b17:
-    type: CL
-    duration: 1000000
+    duration: 600000
     CS: null
