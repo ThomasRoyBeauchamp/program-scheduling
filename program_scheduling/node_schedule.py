@@ -89,8 +89,8 @@ class NodeSchedule:
         # in case a session with post-processing is scheduled right at the end of NS (currently dominated by QKD)
         extra_margin = int(35_000_000 / self.active_set.get_gcd())
         schedule_size = scaled_network_schedule.length + extra_margin if network_schedule is not None \
-            else 2 * int(sum(scaled_durations))
-        logger.info(f"Length of network schedule is {schedule_size}")
+            else self.length_factor * int(sum(scaled_durations))
+        logger.debug(f"Length of network schedule is {schedule_size}")
         capacities = [1, 1]  # capacity of [CPU, QPU]
 
         # x[i] is the starting time of the ith job

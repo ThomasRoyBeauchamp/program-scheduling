@@ -68,6 +68,18 @@ class NetworkSchedule:
         network_schedule.length = int(network_schedule.length / factor)  # TODO: is this always int?
         return network_schedule
 
+    @staticmethod
+    def get_relevant_ids(dataset_id, n_sessions, length_factor):
+        relevant_ids = []
+        folder_path = os.path.dirname(__file__).rstrip("program_scheduling") + "network_schedules"
+        filename_part = NetworkSchedule.get_name(dataset_id=dataset_id, n_sessions=n_sessions,
+                                                 length_factor=length_factor)
+        for f in os.listdir(folder_path):
+            if filename_part in f:
+                id = int(f.split(".")[0].split("-")[-1])
+                relevant_ids.append(id)
+        return relevant_ids
+
     def save_network_schedule(self, filename):
         """
         Saves the network schedule. First checks if network_schedules folder is created.
