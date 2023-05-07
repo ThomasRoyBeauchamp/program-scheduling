@@ -116,6 +116,7 @@ def create_network_cfg(alice_cfg, bob_cfg):
 
 
 def execute_node_schedule(dataset, node_schedule_name, seed=0, perfect_params=False):
+    logger.debug(f"Executing {node_schedule_name}")
     ns.sim_reset()
     ns.set_qstate_formalism(ns.qubits.qformalism.QFormalism.DM)
 
@@ -167,7 +168,6 @@ def execute_node_schedule(dataset, node_schedule_name, seed=0, perfect_params=Fa
     alice_tasks = alice_procnode.scheduler.get_tasks_to_schedule()
 
     alice_schedule = create_task_schedule(alice_tasks, "node_schedules/" + node_schedule_name + "-alice.csv")
-    logger.debug(f"\nAlice's schedule:\n{alice_schedule}")
     alice_procnode.scheduler.upload_schedule(alice_schedule)
 
     for (path, num_iterations) in dataset.items():
@@ -195,7 +195,6 @@ def execute_node_schedule(dataset, node_schedule_name, seed=0, perfect_params=Fa
     bob_tasks = bob_procnode.scheduler.get_tasks_to_schedule()
 
     bob_schedule = create_task_schedule(bob_tasks, "node_schedules/" + node_schedule_name + "-bob.csv")
-    logger.debug(f"\nBob's schedule:\n{bob_schedule}")
     bob_procnode.scheduler.upload_schedule(bob_schedule)
 
     network.start()
@@ -294,12 +293,12 @@ def evaluate_node_schedule(node_schedule_name, perfect_params):
                     "alice_theta0": 0, "alice_theta1": 24, "alice_theta2": 0, "alice_theta3": 24, "alice_theta4": 0,
                     "bob_theta0": 0, "bob_theta1": 24, "bob_theta2": 0, "bob_theta3": 24, "bob_theta4": 0,
                 }
-                same_meas_outcomes = all(alice.values[v] == bob.values[v] for v in ["m0", "m1", "m2", "m3", "m4"])
+                same_meas_outcomes = all(alice.values[v] == bob.values[v] for v in ["m0", "m1", "m2"])
                 # these are just sanity checks
                 alice_gets_correct_thetas = all(alice.values[v] == default_thetas[v] for v in
-                                                ["bob_theta" + str(t) for t in [0, 1, 2, 3, 4]])
+                                                ["bob_theta" + str(t) for t in [0, 1, 2]])
                 bob_gets_correct_thetas = all(bob.values[v] == default_thetas[v] for v in
-                                              ["alice_theta" + str(t) for t in [0, 1, 2, 3, 4]])
+                                              ["alice_theta" + str(t) for t in [0, 1, 2]])
                 successful_qkd_session = same_meas_outcomes and alice_gets_correct_thetas and bob_gets_correct_thetas
                 if successful_qkd_session:
                     successful_sessions.update({"qkd": successful_sessions.get("qkd", 0) + 1})

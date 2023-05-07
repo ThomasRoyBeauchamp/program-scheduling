@@ -82,7 +82,19 @@ gate_cnot: &gate_cnot
   noise_config:
     <<: *multi_gate_noise
 
+gate_cnot2: &gate_cnot2
+  name: "INSTR_CNOT"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *multi_gate_noise
+
 gate_cphase: &gate_cphase
+  name: "INSTR_CZ"
+  noise_config_cls: "GateDepolariseConfig"
+  noise_config:
+    <<: *multi_gate_noise
+
+gate_cphase2: &gate_cphase2
   name: "INSTR_CZ"
   noise_config_cls: "GateDepolariseConfig"
   noise_config:
@@ -113,3 +125,7 @@ multi_gates:
     gate_configs:
       - <<: *gate_cnot
       - <<: *gate_cphase
+  - qubit_ids: [1, 0]
+    gate_configs:
+      - <<: *gate_cnot2
+      - <<: *gate_cphase2
