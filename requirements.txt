@@ -1,11 +1,11 @@
 matplotlib==3.7.1
 netqasm==0.13.0a4
-netsquid==1.1.7
+netsquid==1.1.6
 netsquid-magic==13.3.0
 numpy==1.22.4
 pandas==1.5.3
 pycsp3==2.1.2
-pydynaa==1.0.2
+pydynaa==0.3.6
 pytest==7.2.2
 PyYAML==6.0
 qoala==0.2.1
