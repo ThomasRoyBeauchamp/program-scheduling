@@ -262,7 +262,7 @@ def evaluate_node_schedule(node_schedule_name, perfect_params):
                                    perfect_params=perfect_params)
 
     if result is None:
-        logger.info(f"Execution of node schedule {node_schedule_name} failed")
+        # execution of the node schedule failed (TODO: why does this happen?)
         sm = {"success_probability": 0, "makespan": 0}
         for (session, _) in \
                 create_dataset(dataset_id=dataset_id, n_sessions=n_sessions, only_session_name=True).items():
