@@ -197,8 +197,11 @@ def execute_node_schedule(dataset, node_schedule_name, seed=0, perfect_params=Fa
     bob_schedule = create_task_schedule(bob_tasks, "node_schedules/" + node_schedule_name + "-bob.csv")
     bob_procnode.scheduler.upload_schedule(bob_schedule)
 
-    network.start()
-    ns.sim_run()
+    try:
+        network.start()
+        ns.sim_run()
+    except KeyError:
+        return None
 
     alice_results = alice_procnode.scheduler.get_batch_results()
     bob_results = bob_procnode.scheduler.get_batch_results()
@@ -258,6 +261,14 @@ def evaluate_node_schedule(node_schedule_name, perfect_params):
     result = execute_node_schedule(dataset=dataset, node_schedule_name=node_schedule_name, seed=seed,
                                    perfect_params=perfect_params)
 
+    if result is None:
+        logger.info(f"Execution of node schedule {node_schedule_name} failed")
+        sm = {"success_probability": 0, "makespan": 0}
+        for (session, _) in \
+                create_dataset(dataset_id=dataset_id, n_sessions=n_sessions, only_session_name=True).items():
+            sm.update({f"success_probability_{session}": 0})
+        return sm
+
     successful_sessions = {}
     for (path, alice_batch_result, bob_batch_result) in zip(dataset.keys(), result.alice_results.values(),
                                                             result.bob_results.values()):
@@ -310,8 +321,9 @@ def evaluate_node_schedule(node_schedule_name, perfect_params):
         "makespan": result.makespan
     }
 
-    for (session, successes) in successful_sessions.items():
-        success_metrics.update({f"success_probability_{session}": successes / (n_sessions / len(dataset.keys()))})
+    for (session, iterations) in \
+            create_dataset(dataset_id=dataset_id, n_sessions=n_sessions, only_session_name=True).items():
+        success_metrics.update({f"success_probability_{session}": successful_sessions.get(session, 0) / iterations})
 
     return success_metrics
 
@@ -351,24 +363,30 @@ if __name__ == "__main__":
 
     start = time.time()
     for dataset_id in dataset_ids:
+        logger.info(f"EXECUTING NODE SCHEDULES FOR DATASET {dataset_id}")
         for node_schedule_name in NodeSchedule.get_relevant_node_schedule_names(dataset_id, args.n_sessions,
                                                                                 schedule_type=schedule_type):
+            logger.debug(f"Executing node schedule {node_schedule_name}")
             if args.no_ns and "NS-None" not in node_schedule_name:
                 continue
             elif not args.no_ns and "NS-None" in node_schedule_name:
                 continue
 
             success_metrics = {}
-            for i in range(args.n_qoala_runs):
-                result = evaluate_node_schedule(node_schedule_name=node_schedule_name,
-                                                perfect_params=args.perfect_params)
-                for (k, v) in result.items():
+            for _ in range(args.n_qoala_runs):
+                sm = evaluate_node_schedule(node_schedule_name=node_schedule_name,
+                                            perfect_params=args.perfect_params)
+                for (k, v) in sm.items():
                     success_metrics.update({k: success_metrics.get(k, []) + [v]})
 
             save_success_metrics(node_schedule_name=node_schedule_name, success_metrics=success_metrics,
-                                 schedule_type=schedule_type, n_qoala_runs=args.n_qoala_runs, risk_aware=args.risk_aware)
+                                 schedule_type=schedule_type, n_qoala_runs=args.n_qoala_runs,
+                                 risk_aware=args.risk_aware)
+
+            succ_prob = 0 if success_metrics["success_probability"][0] is None \
+                else round(np.mean(success_metrics['success_probability']), 2) * 100
             logger.info(f"Executed {args.n_qoala_runs} qoala runs for {node_schedule_name[:-5]} with average "
-                        f"{round(np.mean(success_metrics['success_probability']), 2) * 100} % success probability.")
+                        f"{succ_prob}% success probability.")
 
     end = time.time()
     logger.info("Time taken to finish: %.4f seconds" % (end - start))
