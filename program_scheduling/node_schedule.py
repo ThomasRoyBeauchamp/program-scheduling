@@ -79,7 +79,9 @@ class NodeSchedule:
         for f in os.listdir(folder_path):
             if filename_part in f:
                 relevant_node_schedule_names.append(f[:-8] if "bob" in f else f[:-10])
-        return set(relevant_node_schedule_names)
+        unique = list(set(relevant_node_schedule_names))
+        unique.sort()
+        return unique
 
     def construct_node_schedule(self, network_schedule, schedule_type):
         scaled_durations, scaled_d_max = self.active_set.scale_down()
