@@ -257,7 +257,10 @@ def evaluate_node_schedule(node_schedule_name, perfect_params):
     n_sessions = int(parts[1].split("-")[1])
     dataset = create_dataset(dataset_id=dataset_id, n_sessions=n_sessions)
 
-    seed = int(parts[5].split("-")[1]) if parts[5].split("-")[1] is not None else 0
+    if parts[5].split("-")[1] == "None":
+        seed = 0
+    else:
+        seed = int(parts[5].split("-")[1])
     result = execute_node_schedule(dataset=dataset, node_schedule_name=node_schedule_name, seed=seed,
                                    perfect_params=perfect_params)
 
