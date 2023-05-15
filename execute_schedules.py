@@ -98,11 +98,13 @@ def create_task_schedule(tasks, node_schedule_config):
 
     # indices of tasks in the order they start in the node schedule
     indices = [i for (_, i, _) in temp]
+    start_times = [s for (s, _, _) in temp]
     # prev[i] is an index of tasks that needs to be defined as previous to task i
     prev = [p for (_, _, p) in temp]
 
     schedule = TaskSchedule([
-        TaskScheduleEntry(tasks[indices[i]], prev=tasks[prev[i]] if prev[i] is not None else None)
+        TaskScheduleEntry(tasks[indices[i]], timestamp=start_times[i],
+                          prev=tasks[prev[i]] if prev[i] is not None else None)
         for i in range(len(tasks))])
 
     return schedule
