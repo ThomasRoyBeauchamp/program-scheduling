@@ -44,4 +44,4 @@ blocks:
 - b10:
     type: CL
     duration: 100000
-    CS: null
+    CS: 1
