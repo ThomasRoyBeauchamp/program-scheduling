@@ -23,7 +23,7 @@ class NodeSchedule:
         self.ns_id = ns_id
         self.schedule_type = schedule_type
         self.role = role
-        self.length_factor = None if ns_id is None else ns_length_factor
+        self.length_factor = 1 if ns_id is None else ns_length_factor
 
         dataset = create_dataset(dataset_id, n_sessions)
         if ns_id is not None:
