@@ -199,11 +199,8 @@ def execute_node_schedule(dataset, node_schedule_name, seed=0, perfect_params=Fa
     bob_schedule = create_task_schedule(bob_tasks, "node_schedules/" + node_schedule_name + "-bob.csv")
     bob_procnode.scheduler.upload_schedule(bob_schedule)
 
-    try:
-        network.start()
-        ns.sim_run()
-    except KeyError:
-        return None
+    network.start()
+    ns.sim_run()
 
     alice_results = alice_procnode.scheduler.get_batch_results()
     bob_results = bob_procnode.scheduler.get_batch_results()
