@@ -41,8 +41,8 @@ def create_dataset(dataset_id, n_sessions, only_session_name=False):
         if n_sessions % 2 != 0:
             raise ValueError(f"Number of session is not divisible by 2 ({n_sessions}), pick a different dataset.")
         return {
-            path + "qkd": int(n_sessions / 2),
             path + "pingpong": int(n_sessions / 2),
+            path + "qkd": int(n_sessions / 2),
         }
     elif dataset_id == 6:
         if n_sessions % 3 != 0:

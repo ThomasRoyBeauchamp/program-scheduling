@@ -36,4 +36,4 @@ blocks:
 - b8:
     type: CL
     duration: 200000
-    CS: null
+    CS: 1

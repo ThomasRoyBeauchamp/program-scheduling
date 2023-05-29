@@ -147,10 +147,9 @@ def execute_node_schedule(dataset, node_schedule_name, seed=0, perfect_params=Fa
         if session == "qkd":
             # theta should be either 0 (Z basis meas) or 24 (X basis measurement) for rot Y rotation
             alice_inputs = [ProgramInput(
-                {"bob_id": bob_id, "theta0": 0, "theta1": 24, "theta2": 0, "theta3": 24, "theta4": 0}
+                {"bob_id": bob_id, "theta0": 0, "theta1": 24, "theta2": 0}
             ) for _ in range(num_iterations)]
         elif session == "pingpong":
-            # TODO: also include theta input (0 for /0> state, 16 for /1> state)
             np.random.seed(seed)
             bases = np.random.choice([0, 16], num_iterations)
             alice_inputs = [ProgramInput({"bob_id": bob_id, "theta": bases[i]}) for i in range(num_iterations)]
@@ -180,7 +179,7 @@ def execute_node_schedule(dataset, node_schedule_name, seed=0, perfect_params=Fa
             # theta should be either 0 (Z basis meas) or 24 (X basis measurement) for rot Y rotation
             bob_inputs = [ProgramInput(
                 # TODO: use kwargs or default values?
-                {"alice_id": alice_id, "theta0": 0, "theta1": 24, "theta2": 0, "theta3": 24, "theta4": 0}
+                {"alice_id": alice_id, "theta0": 0, "theta1": 24, "theta2": 0}
             ) for _ in range(num_iterations)]
         elif session == "pingpong":
             bob_inputs = [ProgramInput({"alice_id": alice_id}) for _ in range(num_iterations)]
@@ -226,7 +225,7 @@ def save_success_metrics(node_schedule_name, success_metrics, schedule_type, n_q
     length_factor = int(parts[4].split("-")[1])
     ns_id = parts[5].split("-")[1]
 
-    filename = f"qoala-results-node-schedule_sessions-{n_sessions}_dataset_{dataset_id}_schedule-{schedule_type}"
+    filename = f"qoala-results-node-schedule_sessions-{n_sessions}_dataset-{dataset_id}_schedule-{schedule_type}"
 
     metadata = {
         "qoala_run_index": list(range(n_qoala_runs)),

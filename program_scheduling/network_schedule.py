@@ -42,12 +42,12 @@ class NetworkSchedule:
                 if not os.path.exists(folder_path):
                     os.makedirs(folder_path)
                 self.id = self.calculate_id(folder_path)
-                self.generate_random_network_schedule(seed=self.id)
+                self.generate_random_network_schedule()
                 self.save_network_schedule(filename=filename)
             else:
                 assert seed is not None
                 self.id = seed
-                self.generate_random_network_schedule(seed=self.id)
+                self.generate_random_network_schedule()
         else:
             assert len(sessions) == len(start_times)
             self.sessions = sessions
@@ -200,27 +200,27 @@ class NetworkSchedule:
 
         return True
 
-    def generate_random_network_schedule(self, seed):
+    def generate_random_network_schedule(self):
         """
         A method for generating a random network schedule. Depends on the probabilities that a session should be
         scheduled. Each session has a probability `p` assigned. At each decision point, a choice is randomly
         made between scheduling a timeslot for a specific session or not assigning the NS timeslot.
 
-        :param seed: Seed for `numpy.random`
         :return:
         """
-        timeslots_to_pick_from = self._get_all_timeslots(seed)
-        suggested_ns = self._pick_timeslots(timeslots_to_pick_from, seed)
+        timeslots_to_pick_from = self._get_all_timeslots()
+        suggested_ns = self._pick_timeslots(timeslots_to_pick_from)
 
         while not self.feasible_network_schedule(suggested_ns):
-            if seed % 100 == 0:
-                logger.debug(f"Trying out seed {seed}")
-            seed += 1
-            suggested_ns = self._pick_timeslots(timeslots_to_pick_from, seed)
+            if self.id % 100 == 0:
+                logger.debug(f"Trying out seed {self.id}")
+            self.id += 1
+
+            timeslots_to_pick_from = self._get_all_timeslots()
+            suggested_ns = self._pick_timeslots(timeslots_to_pick_from)
 
         ns_timeslots = self._add_cs_timeslots(suggested_ns)
-        self.id = seed
-        logger.info(f"Generated network schedule with seed={seed}")
+        logger.info(f"Generated network schedule with seed={self.id}")
         for i, timeslot in enumerate(ns_timeslots):
             if i == 0:
                 logger.debug(f"\t{timeslot}")
