@@ -96,9 +96,9 @@ class NetworkSchedule:
                                 "start_time": self.start_times})
         df.to_csv(f"{folder_path}/{filename}.csv", index=False)
 
-    def _get_all_timeslots(self, seed):
+    def _get_all_timeslots(self):
         # to make sure no scheduled timeslot is longer than the actual network schedule
-        np.random.seed(seed)
+        np.random.seed(self.id)
         all_timeslots = list(range(100000, self.length - self.QC_LENGTH, self.QC_LENGTH))
 
         assigned_timeslots = []
@@ -124,8 +124,8 @@ class NetworkSchedule:
 
         return assigned_timeslots
 
-    def _pick_timeslots(self, timeslots, seed):
-        np.random.seed(seed)
+    def _pick_timeslots(self, timeslots):
+        np.random.seed(self.id)
 
         n_critical_sections = {k.split("/")[-1]:
                                len(set([b.CS for b in SessionMetadata(k + "_alice.yml", session_id=1).blocks
