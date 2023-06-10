@@ -380,7 +380,7 @@ def plot_compare_success_metric_for_ns_and_no_ns(n_sessions, success_metric, sav
         plt.ylabel("Makespan (s)")
         plt.legend(handles=handles, title=None, labels=["No NS", "With NS"], loc="upper left")
     elif success_metric == "success_probability":
-        plt.xlabel("Average success probability")
+        plt.ylabel("Average success probability")
         plt.legend(handles=handles, title=None, labels=["No NS", "With NS"], loc="lower left")
     plt.tight_layout()
 
