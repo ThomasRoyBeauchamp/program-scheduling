@@ -4,6 +4,7 @@ import seaborn as sns
 import numpy as np
 import os
 
+
 def read_in_data(data_origin):
     big_df = pd.DataFrame()
     for f in os.listdir("results"):
@@ -12,6 +13,7 @@ def read_in_data(data_origin):
             big_df = pd.concat([big_df, df], ignore_index=True)
     big_df.ns_id = pd.to_numeric(big_df.ns_id, errors="coerce")
     return big_df
+
 
 def set_up_seaborn():
     sns.set_theme(context={'axes.linewidth': 1,
@@ -116,6 +118,41 @@ def plot_heuristic_makespan_for_one_network_schedule(n_sessions, schedule_type, 
         plt.savefig(f"plots/compare_makespan_{schedule_type}_{n_sessions}_from_one_NS.png")
     else:
         plt.show()
+
+
+def check_makespan(n_sessions, naive=False):
+    print(f"Comparing makespan for {n_sessions} sessions between "
+          f"{'HEU and OPT' if not naive else 'HEU and NAIVE'} approaches")
+    data = read_in_data("qoala")
+
+    filtered = data[data.n_sessions == n_sessions]
+    if naive:
+        filtered = filtered[filtered.ns_id.notnull()]
+    else:
+        filtered = filtered[filtered.ns_id.isnull()]
+
+    for dataset_id in range(7):
+        dataset = filtered[filtered.dataset_id == dataset_id]
+
+        if naive:
+            comp = []
+            grouped = dataset.groupby(["schedule_type"])["makespan"]
+            mean = grouped.mean().reset_index()
+            heu = float(mean[mean.schedule_type == "HEU"]["makespan"].values[0])
+            naive = float(mean[mean.schedule_type == "NAIVE"]["makespan"].values[0])
+            comp.append(naive / heu)
+            print(f"Relative difference for dataset {dataset_id} is {np.mean(comp)}")
+        else:
+            heuristic = []
+            optimal = []
+            grouped = dataset.groupby(["schedule_type"])["makespan"]
+            mean = grouped.mean().reset_index()
+            heu = float(mean[mean.schedule_type == "HEU"]["makespan"].values[0])
+            opt = float(mean[mean.schedule_type == "OPT"]["makespan"].values[0])
+            heuristic.append(heu)
+            optimal.append(opt)
+            print(f"Relative difference for dataset {dataset_id} is "
+                  f"{(np.mean(optimal) - np.mean(heuristic)) / np.mean(optimal)}")
 
 
 def plot_success_probability_per_network_schedule(dataset_id, n_sessions, ns_id, success_metric, save_fig=True):
@@ -332,7 +369,7 @@ def plot_success_probability_all_datasets_no_ns(n_sessions, save_fig=True):
     ax.set_xticklabels(["BQC", "PP", "QKD", "BQC\n\& PP", "BQC\n\& QKD", "PP\n\& QKD", "BQC \& PP\n\& QKD"])
     plt.xlabel("Dataset")
     plt.ylabel("Average success probability")
-    plt.legend(title="Schedule type")
+    plt.legend(title="Schedule type", loc="lower left")
     plt.tight_layout()
 
     if save_fig:
@@ -398,6 +435,8 @@ if __name__ == '__main__':
     plot_heuristic_makespan_for_one_network_schedule(12, "HEU")
 
     # Plots for -- 7.2 Heuristic-Driven and Optimal Node Schedules --
+    check_makespan(n_sessions=6, naive=False)
+    check_makespan(n_sessions=12, naive=False)
     plot_success_probability_per_network_schedule(0, 6, 8, "success_probability")
     plot_success_probability_per_dataset_ns(dataset_id=0, n_sessions=6)
     plot_success_probability_all_datasets_ns(6)
@@ -406,6 +445,7 @@ if __name__ == '__main__':
     plot_if_for_solve_time_for_ns()
 
     # Plots for -- 7.3 Node Schedules Without Network Schedule Constraints --
+    check_makespan(n_sessions=12, naive=True)
     plot_success_probability_all_datasets_no_ns(n_sessions=12)
     plot_compare_success_metric_for_ns_and_no_ns(12, "success_probability")
     plot_compare_success_metric_for_ns_and_no_ns(12, "makespan")
