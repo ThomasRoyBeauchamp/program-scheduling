@@ -10,7 +10,18 @@ from qoala.sim.build import build_network
 from execute_schedules import create_network_info, create_batch, load_program, create_procnode_cfg, create_network_cfg
 
 
-def retrieve_tasks(config, save_filename=None, num_qubits=3, perfect_params=False):
+def retrieve_tasks(config, save_filename=None, perfect_params=False):
+    """
+    In this method, we use the Qoala simulations to set up YAML files defining types and durations of blocks
+    within a program. Some things such as an application deadline or the critical sections still need to be
+    manually defined afterwards.
+
+    :param config: Name of qoala configuration files defining programs (without the _alice or _bob suffix).
+    :param save_filename: Filename of the YAML files that are being created. If None, the config name is used.
+    :param perfect_params: True if one should use perfect parameters for the hardware (this affects the estimated
+    duration of blocks.
+    :return:
+    """
     if save_filename is None:
         save_filename = config
 
@@ -46,6 +57,7 @@ def retrieve_tasks(config, save_filename=None, num_qubits=3, perfect_params=Fals
     def round_up(x):
         return int(x) - int(x) % -100_000
 
+    # TODO input marks what needs to be manually defined by the user
     with open('configs/' + save_filename + '_alice.yml', 'w') as outfile:
         yaml.dump({"session_id": "TODO",
                    "app_deadline": "TODO",

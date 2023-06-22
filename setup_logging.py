@@ -4,7 +4,7 @@ import logging
 def setup_logging(loglevel):
     numeric_level = getattr(logging, loglevel.upper(), None)
     if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: %s' % args.loglevel)
+        raise ValueError('Invalid log level: %s' % loglevel)
 
     logger = logging.getLogger("program_scheduling")
     logger.setLevel(numeric_level)

@@ -434,7 +434,7 @@ if __name__ == '__main__':
     plot_heuristic_makespan_for_one_network_schedule(6, "HEU")
     plot_heuristic_makespan_for_one_network_schedule(12, "HEU")
 
-    # Plots for -- 7.2 Heuristic-Driven and Optimal Node Schedules --
+    # Plots for -- 7.2 Heuristic-Driven and Optimal Program Scheduling --
     check_makespan(n_sessions=6, naive=False)
     check_makespan(n_sessions=12, naive=False)
     plot_success_probability_per_network_schedule(0, 6, 8, "success_probability")
