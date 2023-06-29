@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from program_scheduling.session_metadata import SessionMetadata, BlockMetadata
+from program_scheduling.program_scheduling.session_metadata import SessionMetadata, BlockMetadata
 from math import gcd, floor
 from functools import reduce
 

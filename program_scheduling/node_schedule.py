@@ -7,9 +7,9 @@ from pycsp3 import VarArray, Cumulative, satisfy, minimize, Maximum, compile, so
     status, clear, SAT, OPTIMUM, UNSAT, UNKNOWN, solution
 from termcolor import cprint
 
-from program_scheduling.datasets import create_dataset
-from program_scheduling.activity_metadata import ActiveSet
-from program_scheduling.network_schedule import NetworkSchedule
+from program_scheduling.program_scheduling.datasets import create_dataset
+from program_scheduling.program_scheduling.activity_metadata import ActiveSet
+from program_scheduling.program_scheduling.network_schedule import NetworkSchedule
 
 logger = logging.getLogger("program_scheduling")
 

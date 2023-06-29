@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 
 from program_scheduling.datasets import create_dataset
-from program_scheduling.session_metadata import SessionMetadata
-from setup_logging import setup_logging
+from program_scheduling.program_scheduling.session_metadata import SessionMetadata
+from program_scheduling.setup_logging import setup_logging
 
 logger = logging.getLogger("program_scheduling")
 

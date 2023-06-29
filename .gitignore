@@ -6,3 +6,4 @@ __pycache__/
 # automatically saved by PyCSP
 /logs
 /node_schedules/temp*
+/network_schedules/unzipped/
