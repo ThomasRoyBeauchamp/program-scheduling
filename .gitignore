@@ -7,3 +7,4 @@ __pycache__/
 /logs
 /node_schedules/temp*
 /network_schedules/unzipped/
+/__init___.py
