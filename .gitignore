@@ -8,3 +8,6 @@ __pycache__/
 /node_schedules/temp*
 /network_schedules/unzipped/
 /__init___.py
+/network_schedules/network-schedule_sessions-6_dataset-0_length-3_id-8.csv
+/network_schedules/network-schedule_sessions-6_dataset-0_length-3_id-20.csv
+/network_schedules/network-schedule_sessions-6_dataset-1_length-3_id-353.csv
